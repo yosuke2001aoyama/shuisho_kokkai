@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index.mjs" },
-    { "source": "/", "destination": "/public/index.html" }
+    { "source": "/api/:path*", "destination": "/api/index-v2.mjs" },
+    { "source": "/", "destination": "/public/index-v2.html" }
   ]
 }
