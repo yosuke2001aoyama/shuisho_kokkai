@@ -32,5 +32,7 @@ export function finalizeStyle(input=''){let s=String(input).normalize('NFKC')
 .replace(/図ります/g,'図る').replace(/講じます/g,'講じる').replace(/行います/g,'行う').replace(/なります/g,'なる').replace(/あります/g,'ある')
 .replace(/必要です/g,'必要である').replace(/重要です/g,'重要である').replace(/ものです/g,'ものである').replace(/ないです/g,'ない')
 .replace(/([一-龠々ぁ-んァ-ンー]+)ます(?=[。、！？]|$)/g,(_,stem)=>present(stem))
-.replace(/です(?=[。！？]|$)/g,'である').replace(/ません(?=[。！？]|$)/g,'ない');return s}
+.replace(/です(?=[。！？]|$)/g,'である').replace(/ません(?=[。！？]|$)/g,'ない')
+.replace(/ておる/g,'ている').replace(/考えてある/g,'考えている').replace(/としてある/g,'としている')
+.replace(/注視をして/g,'注視して');return s}
 export const hasPoliteEnding=s=>/(?:です|ます|ました|ません|ございます|おります)(?:[。、！？]|$)/.test(String(s));
