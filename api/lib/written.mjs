@@ -1,4 +1,4 @@
-import { VERSION, clean, toPlainStyle, bestPassage, relevance } from './core.mjs';
+import { VERSION, clean, toPlainStyle, relevance } from './core.mjs';
 
 const TTL = 30 * 60 * 1000;
 const cache = globalThis.__shuishoCache || (globalThis.__shuishoCache = new Map());
@@ -70,6 +70,54 @@ function extractRows(html, base, house) {
   return out;
 }
 
+function balancedSentences(input) {
+  const text = normalize(clean(input));
+  const out = [];
+  let start = 0;
+  let round = 0;
+  let quote = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '(' || ch === '（' || ch === '[' || ch === '［') round += 1;
+    if (ch === ')' || ch === '）' || ch === ']' || ch === '］') round = Math.max(0, round - 1);
+    if (ch === '「' || ch === '『') quote += 1;
+    if (ch === '」' || ch === '』') quote = Math.max(0, quote - 1);
+    if ((ch === '。' || ch === '！' || ch === '？') && round === 0 && quote === 0) {
+      const sentence = text.slice(start, i + 1).trim();
+      if (sentence) out.push(sentence);
+      start = i + 1;
+    }
+  }
+  const tail = text.slice(start).trim();
+  if (tail) out.push(tail);
+  return out;
+}
+
+const containsRequired = (text, issue) =>
+  (issue.required || []).every((group) => group.some((term) => text.includes(term)));
+
+function stripWrittenHeader(sentence) {
+  return sentence
+    .replace(/^.*?質問に対する答弁書\s*/u, '')
+    .replace(/^(?:一|二|三|四|五|六|七|八|九|十)(?:及び(?:一|二|三|四|五|六|七|八|九|十))?について\s*/u, '')
+    .trim();
+}
+
+function bestWrittenPassage(html, issue, title) {
+  const candidates = balancedSentences(html)
+    .map(stripWrittenHeader)
+    .filter((sentence) => sentence.length >= 20 && sentence.length <= 1400)
+    .filter((sentence) => containsRequired(sentence, issue))
+    .map((sentence) => ({ sentence, score: relevance(sentence, issue, title) }))
+    .filter((x) => x.score >= 45)
+    .sort((a, b) => b.score - a.score);
+  const best = candidates[0]?.sentence || '';
+  if (!best) return '';
+  if (best.length <= 700) return best;
+  const cutoff = Math.max(best.lastIndexOf('。', 700), best.lastIndexOf('、', 650));
+  return best.slice(0, cutoff > 120 ? cutoff + 1 : 700).trim();
+}
+
 async function writtenIndex() {
   const key = `written-index-v${VERSION}`;
   const old = cache.get(key);
@@ -110,7 +158,7 @@ export async function writtenSearch(issue) {
   const out = (await Promise.all(ranked.map(async (x) => {
     try {
       const html = await cachedFetch(x.url, 60 * 60 * 1000);
-      const phrase = bestPassage(html, issue, x.title);
+      const phrase = bestWrittenPassage(html, issue, x.title);
       if (!phrase) return null;
       return {
         id: `written:${x.url}`,
