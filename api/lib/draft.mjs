@@ -19,6 +19,29 @@ const DISCOURSE_PREFIX = /^(?:それから|その上で|まず|また|なお|一
 
 const containsGroup = (text, group = []) => group.some((term) => text.includes(term));
 
+function balancedPieces(input, separators) {
+  const text = String(input);
+  const out = [];
+  let start = 0;
+  let round = 0;
+  let quote = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '(' || ch === '（' || ch === '[' || ch === '［') round += 1;
+    if (ch === ')' || ch === '）' || ch === ']' || ch === '］') round = Math.max(0, round - 1);
+    if (ch === '「' || ch === '『') quote += 1;
+    if (ch === '」' || ch === '』') quote = Math.max(0, quote - 1);
+    if (separators.has(ch) && round === 0 && quote === 0) {
+      const piece = text.slice(start, i + 1).trim();
+      if (piece) out.push(piece);
+      start = i + 1;
+    }
+  }
+  const tail = text.slice(start).trim();
+  if (tail) out.push(tail);
+  return out;
+}
+
 function clauseScore(clause, issue) {
   let score = 0;
   for (const anchor of issue.anchors || []) {
@@ -49,15 +72,14 @@ function focusEvidence(issue, phrase) {
   const styled = finalizeStyle(String(phrase).normalize('NFKC'));
   if (styled.length <= 220) return completeEnding(styled);
 
-  const sentences = styled.split(/(?<=[。！？])/u).map((x) => x.trim()).filter(Boolean);
+  const sentences = balancedPieces(styled, new Set(['。', '！', '？']));
   const units = [];
   for (const sentence of sentences) {
     if (sentence.length <= 220) {
       units.push(sentence);
       continue;
     }
-    const clauses = sentence.split(/(?<=、)/u).map((x) => x.trim()).filter(Boolean);
-    units.push(...clauses);
+    units.push(...balancedPieces(sentence, new Set(['、'])));
   }
   if (!units.length) return completeEnding(styled);
 
@@ -71,20 +93,24 @@ function focusEvidence(issue, phrase) {
   const next = units[best.index + 1];
   if (
     next &&
-    selected.join('').length + next.length <= 260 &&
+    selected.join('').length + next.length <= 280 &&
     (ANSWER_CLAUSE.test(next) || /^(?:政府|引き続き|鋭意|このため|これにより)/u.test(next))
   ) selected.push(next);
 
   let focused = completeEnding(selected.join(''));
   const primary = issue.required?.[0] || [];
   const topic = issue.topic || issue.label;
-  if (
-    topic &&
-    topic.length <= 55 &&
-    !containsGroup(focused, primary) &&
-    !focused.includes(topic)
-  ) focused = `${topic}については、${focused}`;
+  if (topic && topic.length <= 55 && !containsGroup(focused, primary) && !focused.includes(topic)) {
+    focused = `${topic}については、${focused}`;
+  }
   return focused;
+}
+
+function supportsConcept(source, issue) {
+  if (!issue.concept) return true;
+  const text = `${source.title || ''} ${source.phrase || ''}`;
+  const hits = (issue.anchors || []).filter((anchor) => text.includes(anchor));
+  return hits.length >= 2;
 }
 
 async function draftOne(issue, mode, respondent) {
@@ -95,7 +121,7 @@ async function draftOne(issue, mode, respondent) {
   ]);
   const staticSource = issue.concept ? { ...issue.concept.source, score: 85 } : null;
   const candidates = [...diet, ...written, ...official, ...(staticSource ? [staticSource] : [])]
-    .filter((x) => acceptable(x, issue));
+    .filter((x) => acceptable(x, issue) && supportsConcept(x, issue));
   candidates.sort(
     (a, b) => sourceRank(a, mode, respondent) - sourceRank(b, mode, respondent) || b.score - a.score,
   );
@@ -109,14 +135,18 @@ async function draftOne(issue, mode, respondent) {
     };
   }
   if (primary) {
+    const text = primary.sourceType === 'written'
+      ? completeEnding(finalizeStyle(primary.phrase))
+      : focusEvidence(issue, primary.phrase);
     return {
-      segments: [{ text: focusEvidence(issue, primary.phrase), sourceId: primary.id }],
+      segments: [{ text, sourceId: primary.id }],
       refs: [primary],
       diagnostics: { diet: diet.length, written: written.length, official: official.length },
     };
   }
+  const fallbackIssue = { ...issue, label: issue.topic || issue.label };
   return {
-    segments: [{ text: finalizeStyle(fallbackDraft(issue)), generated: true }],
+    segments: [{ text: finalizeStyle(fallbackDraft(fallbackIssue)), generated: true }],
     refs: [],
     diagnostics: { diet: diet.length, written: written.length, official: official.length },
   };
