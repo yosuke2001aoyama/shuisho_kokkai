@@ -40,7 +40,7 @@ export default async function handler(req, res) {
           /北方/.test(refText(written, wsegs[2])),
         plainStyle:
           [speech, written, precedent, guard].every((x) => x.style === '常体') &&
-          !/(まいります|ございます|おります|ました。|ます。|です。)/.test(
+          !/(まいります|ございます|おります|ておる|ました。|ます。|です。)/.test(
             speech.draft + written.draft + precedent.draft + guard.draft,
           ),
         writtenIndex: indexStats.count > 0,
@@ -65,9 +65,9 @@ export default async function handler(req, res) {
     if (u.pathname.endsWith('/regression-test')) {
       const cases = [
         { q: '物価高に対する政府の対応を問う。', terms: /物価高|物価/ },
-        { q: '少子化対策をどのように強化するのか。', terms: /少子化|少子/ },
+        { q: '少子化対策をどのように強化するのか。', terms: /少子化|少子|子育て/ },
         { q: '台湾海峡の平和と安定に対する政府の認識を問う。', terms: /台湾海峡|台湾/ },
-        { q: '生成ＡＩと著作権の関係について政府の見解を問う。', terms: /生成ＡＩ|生成AI|人工知能/ },
+        { q: '生成ＡＩと著作権の関係について政府の見解を問う。', terms: /(?:生成)?AI.*著作権|著作権.*(?:生成)?AI|人工知能/ },
       ];
       const results = [];
       for (const c of cases) {
@@ -81,6 +81,7 @@ export default async function handler(req, res) {
           evidenceCount: d.evidenceCount,
           onTopic,
           style: d.style,
+          formalStyle: !/(まいります|ございます|おります|ておる|おきまして|ました。|ます。|です。)/.test(d.draft),
           draft: d.draft,
           references: d.references.map((x) => ({
             sourceType: x.sourceType,
@@ -92,7 +93,7 @@ export default async function handler(req, res) {
       }
       const checks = {
         allDraft: results.every((x) => x.hasDraft),
-        plainStyle: results.every((x) => x.style === '常体'),
+        plainStyle: results.every((x) => x.style === '常体' && x.formalStyle),
         broadEvidence: results.filter((x) => x.evidenceCount > 0).length >= 3,
         onTopic: results.filter((x) => x.evidenceCount > 0).every((x) => x.onTopic),
       };
