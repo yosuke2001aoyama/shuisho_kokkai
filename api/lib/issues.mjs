@@ -1,4 +1,5 @@
 import { CONCEPTS, clean } from './core.mjs';
+import { enrichIssueIntent } from './intent.mjs';
 
 const SYNONYMS = new Map([
   ['アメリカ', ['米国', '日米', '同盟']],
@@ -91,14 +92,14 @@ const subjectTerms = (topic) => {
 export function makeIssue(label, concept = null) {
   const normalizedLabel = normalize(label);
   if (concept) {
-    return {
+    return enrichIssueIntent({
       label: normalizedLabel,
       topic: concept.id,
       concept,
       anchors: concept.anchors,
       required: CONCEPT_REQUIRED[concept.id] || [concept.anchors.slice(0, 1)],
       queries: [...new Set(concept.queries.filter(Boolean))],
-    };
+    });
   }
   const topic = topicFromQuestion(normalizedLabel);
   const terms = subjectTerms(topic);
@@ -111,7 +112,7 @@ export function makeIssue(label, concept = null) {
     normalizedLabel,
     ...terms,
   ].filter(Boolean))];
-  return { label: normalizedLabel, topic, concept: null, anchors, required, queries };
+  return enrichIssueIntent({ label: normalizedLabel, topic, concept: null, anchors, required, queries });
 }
 
 export function splitIssues(question) {
