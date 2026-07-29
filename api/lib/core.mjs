@@ -1,4 +1,4 @@
-export const VERSION='15.1';
+export const VERSION='15.2';
 export const SOURCE_LABEL={answer:'国会答弁',written:'質問主意書答弁書',press:'会見・演説',interview:'インタビュー・寄稿',fact:'政府公式資料'};
 export const CATEGORY_LABEL={prime:'総理',minister:'大臣',official:'政府参考人',cabinet:'閣議決定済み答弁書',official_policy:'政府公式資料'};
 
@@ -36,6 +36,11 @@ const SYNONYMS=new Map([
 ['少子化',['こども','子育て']],['気候変動',['脱炭素','温室効果ガス']],['原発',['原子力発電所','エネルギー']],
 ['移民',['外国人','在留']],['尖閣',['尖閣諸島']],['北方領土',['北方四島']],['暗号資産',['仮想通貨','金融商品取引法']]
 ]);
+const CONCEPT_REQUIRED={
+'us-autonomy':[['日米同盟','米国','アメリカ','日米']],senkaku:[['尖閣諸島','尖閣']],takeshima:[['竹島']],
+'northern-territories':[['北方領土','北方四島']],abduction:[['拉致','拉致被害者']],
+'nuclear-disarmament':[['核兵器','核軍縮','核不拡散','不拡散']]
+};
 
 export const CONCEPTS=[
 {id:'us-autonomy',match:/アメリカ.*言いなり|米国.*言いなり|対米従属|外交自主|主体的外交/,anchors:['日米同盟','国益','主体的','自主的','外交'],queries:['日米同盟 主体的 外交 国益','米国 自主的 判断 外交'],draft:'我が国の外交・安全保障政策は、米国の意向に従属して決定するものではない。日米同盟を外交・安全保障政策の基軸としつつ、我が国自身の国益、地域の平和と安定及び国際社会全体の利益を踏まえ、政府として主体的に判断し実施する。',source:{id:'concept-us-autonomy',sourceType:'fact',category:'official_policy',phrase:'我が国は、日米同盟を外交・安全保障の基軸としつつ、我が国の国益を踏まえ、主体的な外交を展開する。',title:'外交青書・日米関係',url:'https://www.mofa.go.jp/mofaj/gaiko/bluebook/',sourceName:'外務省'}},
@@ -47,13 +52,15 @@ export const CONCEPTS=[
 ];
 
 const baseWords=s=>[...new Set(clean(s).replace(/[？?。、「」『』（）()・,，:：;；\/]/g,' ').split(/\s+|は|が|を|に対する|に関する|における|に|で|と|の|へ|から|まで|及び|並びに|又は|について|として|による|への|との|をめぐる|に係る/).map(x=>x.replace(/^(対する|関する)/,'').trim()).filter(x=>x.length>=2&&!STOP.has(x)&&!GENERIC.test(x)))];
-const expandWords=words=>{const out=new Set(words);for(const w of words)for(const[k,v]of SYNONYMS)if(w.includes(k)||k.includes(w))v.forEach(x=>out.add(x));return[...out]};
-export const makeIssue=(label,concept=null)=>{const anchors=concept?concept.anchors:expandWords(baseWords(label)).slice(0,12);const queries=concept?concept.queries:[anchors.slice(0,5).join(' '),clean(label),...anchors.slice(0,3)];return{label:clean(label),concept,anchors,queries:[...new Set(queries.filter(Boolean))]}};
+const synonymsFor=w=>{const out=new Set([w]);for(const[k,v]of SYNONYMS)if(w.includes(k)||k.includes(w))v.forEach(x=>out.add(x));return[...out]};
+const expandWords=words=>[...new Set(words.flatMap(synonymsFor))];
+export const makeIssue=(label,concept=null)=>{const base=concept?concept.anchors:baseWords(label),anchors=concept?concept.anchors:expandWords(base).slice(0,12),required=concept?(CONCEPT_REQUIRED[concept.id]||[concept.anchors.slice(0,1)]):base.slice(0,2).map(synonymsFor),queries=concept?concept.queries:[anchors.slice(0,5).join(' '),clean(label),...anchors.slice(0,3)];return{label:clean(label),concept,anchors,required,queries:[...new Set(queries.filter(Boolean))]}};
 export function splitIssues(question){const q=clean(question),concepts=CONCEPTS.filter(c=>c.match.test(q));if(concepts.length)return concepts.map(c=>makeIssue(c.id,c));const numbered=q.split(/(?=(?:^|\s)(?:[一二三四五六七八九十]+|\d+)[　\s、．.])/).map(clean).filter(x=>x.length>=4);if(numbered.length>1)return numbered.map(x=>makeIssue(x.replace(/^(?:[一二三四五六七八九十]+|\d+)[　\s、．.]*/,'')));const lines=String(question).split(/\n+/).map(clean).filter(x=>x.length>=4);return lines.length>1?lines.map(x=>makeIssue(x)):[makeIssue(q)]}
 export function categoryOfSpeech(x){const p=clean(x.speakerPosition);if(/内閣総理大臣|総理大臣/.test(p))return'prime';if(/国務大臣|外務大臣|防衛大臣|財務大臣|官房長官|担当大臣|厚生労働大臣|文部科学大臣|経済産業大臣|国土交通大臣|環境大臣|農林水産大臣|法務大臣|総務大臣/.test(p))return'minister';if(/政府参考人|政府委員|局長|審議官|長官|部長|統括官/.test(p))return'official';return null}
 const sentences=t=>clean(t).split(/(?<=[。！？])/).map(clean).filter(s=>s.length>=18&&s.length<=420);
-export function relevance(text,issue,title=''){const t=clean(text),ttl=clean(title);if(!t||BAD.test(t))return-1000;const anchors=issue.anchors.filter(a=>a.length>=2&&!GENERIC.test(a));if(!anchors.length)return-200;const bodyHits=anchors.filter(a=>t.includes(a)),titleHits=anchors.filter(a=>ttl.includes(a));if(!bodyHits.length&&!titleHits.length)return-150;let score=bodyHits.reduce((n,a)=>n+Math.min(a.length,12)*12,0)+titleHits.reduce((n,a)=>n+Math.min(a.length,12)*18,0);score+=ANSWERISH.test(t)?28:0;score+=bodyHits.length>=2?28:0;score+=bodyHits.length>=3?20:0;const compact=issue.label.replace(/[\s　、。！？?]/g,'');if(compact.length>=4&&(t.replace(/\s/g,'').includes(compact)||ttl.replace(/\s/g,'').includes(compact)))score+=100;return score}
-export function bestPassage(text,issue,title=''){const ss=sentences(text),ranked=ss.map((s,i)=>({s,i,v:relevance(s,issue,title)})).sort((a,b)=>b.v-a.v),best=ranked[0];if(!best||best.v<45)return'';const next=ss[best.i+1];return next&&relevance(next,issue,title)>=45&&best.s.length+next.length<650?best.s+next:best.s}
+export function subjectMatches(text,issue,title='',allowTitle=true){const t=clean(text),ttl=allowTitle?clean(title):'';if(!issue.required?.length)return false;return issue.required.every(group=>group.some(a=>t.includes(a)||ttl.includes(a)))}
+export function relevance(text,issue,title=''){const t=clean(text),ttl=clean(title);if(!t||BAD.test(t)||!subjectMatches(t,issue,ttl,true))return-1000;const anchors=issue.anchors.filter(a=>a.length>=2&&!GENERIC.test(a)),bodyHits=anchors.filter(a=>t.includes(a)),titleHits=anchors.filter(a=>ttl.includes(a));let score=bodyHits.reduce((n,a)=>n+Math.min(a.length,12)*12,0)+titleHits.reduce((n,a)=>n+Math.min(a.length,12)*18,0);score+=ANSWERISH.test(t)?28:0;score+=bodyHits.length>=2?28:0;score+=bodyHits.length>=3?20:0;const compact=issue.label.replace(/[\s　、。！？?]/g,'');if(compact.length>=4&&(t.replace(/\s/g,'').includes(compact)||ttl.replace(/\s/g,'').includes(compact)))score+=100;return score}
+export function bestPassage(text,issue,title=''){const ss=sentences(text),ranked=ss.filter(s=>subjectMatches(s,issue,'',false)).map((s,i)=>({s,i,v:relevance(s,issue,title)})).sort((a,b)=>b.v-a.v),best=ranked[0];if(!best||best.v<45)return'';const idx=ss.indexOf(best.s),next=ss[idx+1];return next&&subjectMatches(next,issue,'',false)&&relevance(next,issue,title)>=45&&best.s.length+next.length<650?best.s+next:best.s}
 export function sourceRank(source,mode,respondent){if(mode==='written')return source.sourceType==='written'?0:source.sourceType==='answer'?1:source.sourceType==='press'?2:source.sourceType==='interview'?3:4;if(source.sourceType==='answer'&&source.category===respondent)return 0;if(source.sourceType==='written')return 1;if(source.sourceType==='answer')return 2;if(source.sourceType==='press')return 3;if(source.sourceType==='interview')return 4;return 5}
-export function acceptable(source,issue){if(!source||BAD.test(source.phrase||''))return false;return relevance(source.phrase,issue,source.title)>=45&&(ANSWERISH.test(source.phrase)||source.sourceType==='fact')}
+export function acceptable(source,issue){if(!source||BAD.test(source.phrase||'')||!subjectMatches(source.phrase,issue,'',false))return false;return relevance(source.phrase,issue,source.title)>=45&&(ANSWERISH.test(source.phrase)||source.sourceType==='fact')}
 export const fallbackDraft=issue=>`${issue.label.length>80?'当該問題':issue.label}については、我が国の国益、国民の安全及び関係する法令・事実関係を踏まえ、政府として主体的かつ適切に判断し、必要な対応を行う。`;
