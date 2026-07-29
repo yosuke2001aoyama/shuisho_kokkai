@@ -1,5 +1,5 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from './lib/profile-v16.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from './lib/profile-v17.mjs';
 import { writtenIndexStats } from './lib/written.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
@@ -15,6 +15,16 @@ const refText = (draft, segment) => {
   return `${ref?.title || ''} ${ref?.phrase || ''}`;
 };
 
+const defensiveStrategy = (value) => [
+  'ambiguity',
+  'evaluation',
+  'hypothetical',
+  'outside-scope',
+  'security',
+  'enumerative',
+  'no-evidence',
+].includes(value);
+
 export default async function handler(req, res) {
   try {
     const u = new URL(req.url, 'https://local');
@@ -23,7 +33,7 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ok: true,
         version: PROFILE_VERSION,
-        draftingProfile: 'oral-full-answer/written-defensive-cabinet-document',
+        draftingProfile: 'oral-coherent-full-answer/written-strict-cabinet-document',
       });
     }
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
@@ -65,36 +75,49 @@ export default async function handler(req, res) {
       const checks = {
         speechMinimumPoints:
           speech.coverageSummary.missing === 0 &&
-          speech.coverage.every((x) => x.pointCount >= 3) &&
-          speech.coverageSummary.totalPoints >= speech.issueCount * 3,
+          speech.coverage.every((x) => x.pointCount === 4) &&
+          speech.coverageSummary.totalPoints === speech.issueCount * 4,
         speechStructured:
-          /● 結論/.test(speech.draft) &&
-          /● 基本認識/.test(speech.draft) &&
-          /● 具体的な対応/.test(speech.draft) &&
-          /● 今後の方針/.test(speech.draft),
-        speechNoOneBullet: (speech.draft.match(/^● /gmu) || []).length >= speech.issueCount * 3,
-        vagueSpeechExplains: vagueSpeech.coverage.every((x) => x.pointCount >= 3),
+          /● 論点一/.test(speech.draft) &&
+          /【結論】/.test(speech.draft) &&
+          /【基本認識】/.test(speech.draft) &&
+          /【具体的な対応】/.test(speech.draft) &&
+          /【今後の方針】/.test(speech.draft),
+        speechNoOneBullet: (speech.draft.match(/^● 論点/gmu) || []).length === speech.issueCount,
+        speechNoDebateFragments:
+          !/お尋ねの|御指摘|委員|議員|昨日は|私も|連合さん|まあ|おっしゃ|通告|時間の関係/.test(speech.draft),
+        vagueSpeechExplains:
+          vagueSpeech.coverage.every((x) => x.pointCount === 4) &&
+          /【結論】/.test(vagueSpeech.draft) &&
+          !/お答えすることは困難である/.test(vagueSpeech.draft),
         writtenNoRespondent: written.respondent === null && vagueWritten.respondent === null,
         writtenMultiIssue: written.issueCount >= 3 && written.missingIssueCount === 0,
+        writtenHeadings:
+          /^一について/mu.test(written.draft) &&
+          /^二について/mu.test(written.draft) &&
+          /^三について/mu.test(written.draft),
         territoryEvidence:
           wsegs.length >= 3 &&
           wsegs.some((x) => /尖閣/.test(refText(written, x))) &&
           wsegs.some((x) => /竹島/.test(refText(written, x))) &&
           wsegs.some((x) => /北方/.test(refText(written, x))),
         vagueWrittenRefuses:
-          vagueWritten.coverage.every((x) => x.writtenStrategy === 'ambiguity') &&
+          vagueWritten.coverage.every((x) => defensiveStrategy(x.writtenStrategy)) &&
           /具体的に意味するところが必ずしも明らかではない/.test(vagueWritten.draft) &&
-          /お答えすることは困難である/.test(vagueWritten.draft),
+          /お答えすることは困難である|一概にお答えすることは困難である/.test(vagueWritten.draft) &&
+          vagueWritten.references.length === 0,
         outsideScopeRefuses:
           privateWritten.coverage.every((x) => x.writtenStrategy === 'outside-scope') &&
-          /政府として把握する立場にない/.test(privateWritten.draft),
+          /政府として把握する立場にない/.test(privateWritten.draft) &&
+          privateWritten.references.length === 0,
         hypotheticalRefuses:
           hypotheticalWritten.coverage.every((x) => x.writtenStrategy === 'hypothetical') &&
           /仮定を前提/.test(hypotheticalWritten.draft) &&
-          /一概にお答えすることは困難である/.test(hypotheticalWritten.draft),
+          /一概にお答えすることは困難である/.test(hypotheticalWritten.draft) &&
+          hypotheticalWritten.references.length === 0,
         profileDifference:
-          (vagueSpeech.draft.match(/^● /gmu) || []).length >= 3 &&
-          !/^● /mu.test(vagueWritten.draft) &&
+          /【結論】/.test(vagueSpeech.draft) &&
+          !/【結論】/.test(vagueWritten.draft) &&
           vagueWritten.coverageSummary.qualifiedOrLimited >= 1,
         plainStyle:
           [speech, written, vagueSpeech, vagueWritten, privateWritten, hypotheticalWritten].every((x) => x.style === '常体'),
@@ -135,6 +158,12 @@ export default async function handler(req, res) {
           coverage: d.coverageSummary,
           pointCounts: d.coverage.map((x) => x.pointCount),
           formalStyle: !/(まいります|ございます|おります|ておる|おきまして|ました。|ます。|です。)/.test(d.draft),
+          coherentStructure:
+            /● 論点一/.test(d.draft) &&
+            /【結論】/.test(d.draft) &&
+            /【基本認識】/.test(d.draft) &&
+            /【具体的な対応】/.test(d.draft) &&
+            /【今後の方針】/.test(d.draft),
           draft: d.draft,
           references: d.references.map((x) => ({
             sourceType: x.sourceType,
@@ -147,7 +176,8 @@ export default async function handler(req, res) {
       const checks = {
         allDraft: results.every((x) => x.hasDraft),
         allCovered: results.every((x) => x.coverage.missing === 0),
-        minimumThreePoints: results.every((x) => x.pointCounts.every((n) => n >= 3)),
+        fourPoints: results.every((x) => x.pointCounts.every((n) => n === 4)),
+        coherentStructure: results.every((x) => x.coherentStructure),
         plainStyle: results.every((x) => x.style === '常体' && x.formalStyle),
         broadEvidence: results.filter((x) => x.evidenceCount > 0).length >= 3,
         onTopic: results.every((x) => x.onTopic),
