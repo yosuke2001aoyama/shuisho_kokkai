@@ -1,5 +1,5 @@
-import { VERSION, clean } from './lib/core.mjs';
-import { build, searchAll, selfTest } from './lib/draft.mjs';
+import { clean } from './lib/core.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from './lib/profile-v16.mjs';
 import { writtenIndexStats } from './lib/written.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
@@ -19,52 +19,97 @@ export default async function handler(req, res) {
   try {
     const u = new URL(req.url, 'https://local');
 
-    if (u.pathname.endsWith('/health')) return json(res, 200, { ok: true, version: VERSION, draftingProfile: 'speech-substantive/written-defensive-official' });
+    if (u.pathname.endsWith('/health')) {
+      return json(res, 200, {
+        ok: true,
+        version: PROFILE_VERSION,
+        draftingProfile: 'oral-full-answer/written-defensive-cabinet-document',
+      });
+    }
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
     if (u.pathname.endsWith('/style-guide')) return json(res, 200, getOfficialStyleGuide());
 
     if (u.pathname.endsWith('/smoke-test')) {
-      const speech = await build('speech', '我が国はアメリカの言いなりなのか。国益に基づきどのような外交を進めるのか。', 'prime');
-      const written = await build('written', '尖閣諸島、竹島及び北方領土はいずれも我が国固有の領土か。', 'minister');
-      const precedent = await build('written', '暗号資産に対する基本的な認識を問う。', 'minister');
-      const defensive = await build('written', '御指摘の「特別な外交自律性」の定義及び評価基準を示されたい。', 'minister');
-      const multi = await build('speech', '物価高への対応を問う。また、賃上げをどのように実現するのか。さらに、中小企業への支援策を示されたい。', 'minister');
-      const guard = await build('speech', '岸田外交の基本姿勢について、政府の認識を問う。', 'minister');
+      const speech = await build(
+        'speech',
+        '物価高への対応を問う。また、賃上げをどのように実現するのか。さらに、中小企業への支援策を示されたい。',
+        'minister',
+      );
+      const written = await build(
+        'written',
+        '尖閣諸島、竹島及び北方領土はいずれも我が国固有の領土か。',
+        'minister',
+      );
+      const vagueSpeech = await build(
+        'speech',
+        '御指摘の「真に十分な少子化対策」とは何か。政府の評価基準と今後の対応を示されたい。',
+        'minister',
+      );
+      const vagueWritten = await build(
+        'written',
+        '御指摘の「真に十分な少子化対策」とは何か。政府の評価基準と今後の対応を示されたい。',
+        'minister',
+      );
+      const privateWritten = await build(
+        'written',
+        '民間報道機関が個別の取材で得た情報を政府は全て把握しているか。',
+        'minister',
+      );
+      const hypotheticalWritten = await build(
+        'written',
+        '仮に全ての原子力発電所を直ちに廃止した場合の影響を網羅的に示されたい。',
+        'minister',
+      );
       const indexStats = await writtenIndexStats();
       const wsegs = written.segments.filter((x) => x.referenceKey);
       const checks = {
-        speechIntent: speech.draft.includes('主体的') && !speech.draft.includes('沖縄の未来'),
-        speechEvidence: speech.references.every((x) => /日米|米国|アメリカ/.test(`${x.title} ${x.phrase}`)),
-        writtenNoRespondent: written.respondent === null,
+        speechMinimumPoints:
+          speech.coverageSummary.missing === 0 &&
+          speech.coverage.every((x) => x.pointCount >= 3) &&
+          speech.coverageSummary.totalPoints >= speech.issueCount * 3,
+        speechStructured:
+          /● 結論/.test(speech.draft) &&
+          /● 基本認識/.test(speech.draft) &&
+          /● 具体的な対応/.test(speech.draft) &&
+          /● 今後の方針/.test(speech.draft),
+        speechNoOneBullet: (speech.draft.match(/^● /gmu) || []).length >= speech.issueCount * 3,
+        vagueSpeechExplains: vagueSpeech.coverage.every((x) => x.pointCount >= 3),
+        writtenNoRespondent: written.respondent === null && vagueWritten.respondent === null,
         writtenMultiIssue: written.issueCount >= 3 && written.missingIssueCount === 0,
         territoryEvidence:
           wsegs.length >= 3 &&
           wsegs.some((x) => /尖閣/.test(refText(written, x))) &&
           wsegs.some((x) => /竹島/.test(refText(written, x))) &&
           wsegs.some((x) => /北方/.test(refText(written, x))),
+        vagueWrittenRefuses:
+          vagueWritten.coverage.every((x) => x.writtenStrategy === 'ambiguity') &&
+          /具体的に意味するところが必ずしも明らかではない/.test(vagueWritten.draft) &&
+          /お答えすることは困難である/.test(vagueWritten.draft),
+        outsideScopeRefuses:
+          privateWritten.coverage.every((x) => x.writtenStrategy === 'outside-scope') &&
+          /政府として把握する立場にない/.test(privateWritten.draft),
+        hypotheticalRefuses:
+          hypotheticalWritten.coverage.every((x) => x.writtenStrategy === 'hypothetical') &&
+          /仮定を前提/.test(hypotheticalWritten.draft) &&
+          /一概にお答えすることは困難である/.test(hypotheticalWritten.draft),
+        profileDifference:
+          (vagueSpeech.draft.match(/^● /gmu) || []).length >= 3 &&
+          !/^● /mu.test(vagueWritten.draft) &&
+          vagueWritten.coverageSummary.qualifiedOrLimited >= 1,
         plainStyle:
-          [speech, written, precedent, defensive, multi, guard].every((x) => x.style === '常体') &&
-          !/(まいります|ございます|おります|ておる|ました。|ます。|です。)/.test(
-            speech.draft + written.draft + precedent.draft + defensive.draft + multi.draft + guard.draft,
-          ),
-        writtenOfficialStyle: [written, precedent, defensive].every((x) => x.officialStyleCheck?.passed),
-        writtenDefensive: /具体的に意味するところが必ずしも明らかではない|一概にお答えすることは困難である/.test(defensive.draft),
-        unnumberedCoverage: multi.issueCount === 3 && multi.coverageSummary.covered === 3,
+          [speech, written, vagueSpeech, vagueWritten, privateWritten, hypotheticalWritten].every((x) => x.style === '常体'),
+        writtenOfficialStyle:
+          [written, vagueWritten, privateWritten, hypotheticalWritten].every((x) => x.officialStyleCheck?.passed),
         writtenIndex: indexStats.count > 0,
-        writtenSource: precedent.references.some(
-          (x) => x.sourceType === 'written' && /暗号資産/.test(`${x.title} ${x.phrase}`),
-        ),
-        topicGuard:
-          !/(国家公務員|労働基本権|人事院勧告|著作権者|公的機関が利用)/.test(guard.draft) &&
-          (guard.references.length === 0 || guard.references.every((x) => /岸田|外交/.test(`${x.title} ${x.phrase}`))),
-        alwaysDraft: [speech, written, precedent, defensive, multi, guard].every((x) => Boolean(x.draft)),
+        alwaysDraft:
+          [speech, written, vagueSpeech, vagueWritten, privateWritten, hypotheticalWritten].every((x) => Boolean(x.draft)),
       };
       return json(res, 200, {
-        version: VERSION,
+        version: PROFILE_VERSION,
         passed: Object.values(checks).every(Boolean),
         checks,
         indexStats,
-        samples: { speech, written, precedent, defensive, multi, guard },
+        samples: { speech, written, vagueSpeech, vagueWritten, privateWritten, hypotheticalWritten },
       });
     }
 
@@ -79,7 +124,7 @@ export default async function handler(req, res) {
       for (const c of cases) {
         const d = await build('speech', c.q, 'minister');
         const onTopic =
-          d.references.length > 0 &&
+          d.references.length === 0 ||
           d.references.every((x) => c.terms.test(`${x.title} ${x.phrase}`));
         results.push({
           question: c.q,
@@ -88,6 +133,7 @@ export default async function handler(req, res) {
           onTopic,
           style: d.style,
           coverage: d.coverageSummary,
+          pointCounts: d.coverage.map((x) => x.pointCount),
           formalStyle: !/(まいります|ございます|おります|ておる|おきまして|ました。|ます。|です。)/.test(d.draft),
           draft: d.draft,
           references: d.references.map((x) => ({
@@ -101,12 +147,13 @@ export default async function handler(req, res) {
       const checks = {
         allDraft: results.every((x) => x.hasDraft),
         allCovered: results.every((x) => x.coverage.missing === 0),
+        minimumThreePoints: results.every((x) => x.pointCounts.every((n) => n >= 3)),
         plainStyle: results.every((x) => x.style === '常体' && x.formalStyle),
         broadEvidence: results.filter((x) => x.evidenceCount > 0).length >= 3,
-        onTopic: results.filter((x) => x.evidenceCount > 0).every((x) => x.onTopic),
+        onTopic: results.every((x) => x.onTopic),
       };
       return json(res, 200, {
-        version: VERSION,
+        version: PROFILE_VERSION,
         passed: Object.values(checks).every(Boolean),
         checks,
         results,
@@ -122,7 +169,7 @@ export default async function handler(req, res) {
       const results = await searchAll(q, respondent);
       return json(res, 200, {
         query: q,
-        version: VERSION,
+        version: PROFILE_VERSION,
         coverage: {
           note: '国会答弁、衆参両院の質問主意書答弁書、会見・演説、インタビュー・寄稿及び政府公式資料を横断し、質問意図との適合性で絞り込んでいる。',
         },
@@ -144,13 +191,13 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ...(await build(mode, question, respondent)),
         mode,
-        generatedBy: `draft-engine-v${VERSION}-profile-20260729`,
+        generatedBy: `draft-engine-profile-${PROFILE_VERSION}`,
         disclaimer: '起案補助用。正式使用前に主管府省で最新の事実関係、政府方針、法令引用及び用例との整合性を確認すること。',
       });
     }
 
     return json(res, 404, { error: 'Not found' });
   } catch (e) {
-    return json(res, 502, { error: e?.message || '処理に失敗した。', version: VERSION });
+    return json(res, 502, { error: e?.message || '処理に失敗した。', version: PROFILE_VERSION });
   }
 }
