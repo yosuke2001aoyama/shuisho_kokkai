@@ -1,11 +1,21 @@
-const PAST_EXACT=new Map([['行い','行った'],['用い','用いた'],['率い','率いた'],['思い','思った'],['あり','あった'],['なり','なった'],['でき','できた'],['い','いた'],['取り組み','取り組んだ']]);
+const PAST_EXACT=new Map([['行い','行った'],['用い','用いた'],['率い','率いた'],['思い','思った'],['あり','あった'],['なり','なった'],['でき','できた'],['い','いた'],['取り組み','取り組んだ'],['考え','考えた'],['進め','進めた'],['求め','求めた']]);
+const PRESENT_EXACT=new Map([['行い','行う'],['用い','用いる'],['率い','率いる'],['思い','思う'],['あり','ある'],['なり','なる'],['でき','できる'],['い','いる'],['取り組み','取り組む'],['考え','考える'],['進め','進める'],['求め','求める'],['続け','続ける'],['認め','認める'],['努め','努める']]);
 function past(stem){if(PAST_EXACT.has(stem))return PAST_EXACT.get(stem);if(stem.endsWith('し'))return stem.slice(0,-1)+'した';if(stem.endsWith('き'))return stem.slice(0,-1)+'いた';if(stem.endsWith('ぎ'))return stem.slice(0,-1)+'いだ';if(/[みびに]$/.test(stem))return stem.slice(0,-1)+'んだ';if(/[りちい]$/.test(stem))return stem.slice(0,-1)+'った';return stem+'た'}
-export function finalizeStyle(input=''){let s=String(input)
+function present(stem){if(PRESENT_EXACT.has(stem))return PRESENT_EXACT.get(stem);if(stem.endsWith('し'))return stem.slice(0,-1)+'する';if(stem.endsWith('き'))return stem.slice(0,-1)+'く';if(stem.endsWith('ぎ'))return stem.slice(0,-1)+'ぐ';if(stem.endsWith('み'))return stem.slice(0,-1)+'む';if(stem.endsWith('び'))return stem.slice(0,-1)+'ぶ';if(stem.endsWith('に'))return stem.slice(0,-1)+'ぬ';if(stem.endsWith('り'))return stem.slice(0,-1)+'る';if(stem.endsWith('ち'))return stem.slice(0,-1)+'つ';if(stem.endsWith('い'))return stem.slice(0,-1)+'う';return stem+'る'}
+export function finalizeStyle(input=''){let s=String(input).normalize('NFKC')
+.replace(/行ってまいりたいと思っております/g,'行っていきたいと考えている')
+.replace(/進めてまいりたいと考えております/g,'進めていきたいと考えている')
+.replace(/てまいりたいと思っております/g,'ていきたいと考えている')
+.replace(/てまいりたいと考えております/g,'ていきたいと考えている')
+.replace(/てまいりたい/g,'ていきたい')
 .replace(/行ってまいりました/g,'行ってきた').replace(/行ってまいります/g,'行っていく')
 .replace(/してまいりました/g,'してきた').replace(/してまいります/g,'していく')
 .replace(/でございました/g,'であった').replace(/でございます/g,'である').replace(/ではございません/g,'ではない')
-.replace(/と考えております/g,'と考えている').replace(/と認識しております/g,'と認識している').replace(/としております/g,'としている')
-.replace(/しております/g,'している').replace(/しておりません/g,'していない').replace(/であります/g,'である')
+.replace(/と考えております/g,'と考えている').replace(/と認識しております/g,'と認識している').replace(/と思っております/g,'と考えている')
+.replace(/と考えています/g,'と考えている').replace(/と認識しています/g,'と認識している').replace(/と思っています/g,'と考えている')
+.replace(/としております/g,'としている').replace(/しております/g,'している').replace(/しておりません/g,'していない')
+.replace(/でありますが/g,'であるが').replace(/であります/g,'である')
+.replace(/につきましては/g,'については').replace(/としましては/g,'としては').replace(/おきましては/g,'おいては')
 .replace(/いたしました/g,'した').replace(/いたします/g,'する').replace(/申し上げました/g,'述べた').replace(/申し上げます/g,'述べる')
 .replace(/([一-龠々ぁ-んァ-ンー]+)ました/g,(_,stem)=>past(stem))
 .replace(/ありません/g,'ない').replace(/ございません/g,'ない').replace(/ございます/g,'ある')
@@ -14,5 +24,6 @@ export function finalizeStyle(input=''){let s=String(input)
 .replace(/目指します/g,'目指す').replace(/取り組みます/g,'取り組む').replace(/努めます/g,'努める').replace(/進めます/g,'進める')
 .replace(/図ります/g,'図る').replace(/講じます/g,'講じる').replace(/行います/g,'行う').replace(/なります/g,'なる').replace(/あります/g,'ある')
 .replace(/必要です/g,'必要である').replace(/重要です/g,'重要である').replace(/ものです/g,'ものである').replace(/ないです/g,'ない')
+.replace(/([一-龠々ぁ-んァ-ンー]+)ます(?=[。、！？]|$)/g,(_,stem)=>present(stem))
 .replace(/です(?=[。！？]|$)/g,'である').replace(/ません(?=[。！？]|$)/g,'ない');return s}
-export const hasPoliteEnding=s=>/(?:です|ます|ました|ません|ございます|おります)(?:[。！？]|$)/.test(String(s));
+export const hasPoliteEnding=s=>/(?:です|ます|ました|ません|ございます|おります)(?:[。、！？]|$)/.test(String(s));
