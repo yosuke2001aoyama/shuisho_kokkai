@@ -33,6 +33,8 @@ export async function dietSearch(issue, respondent) {
     if (!phrase) continue;
     const rawScore = relevance(phrase, issue, title);
     if (rawScore < 45) continue;
+    const year = Number(String(x.date || '').slice(0, 4));
+    const recencyBoost = Number.isFinite(year) ? Math.max(0, year - 2000) * 2 : 0;
     out.push({
       id,
       sourceType: 'answer',
@@ -44,7 +46,7 @@ export async function dietSearch(issue, respondent) {
       date: x.date || '',
       speaker: normalize(x.speaker || ''),
       speakerPosition: normalize(x.speakerPosition || ''),
-      score: rawScore + (category === respondent ? 90 : 0),
+      score: rawScore + (category === respondent ? 90 : 0) + recencyBoost,
     });
   }
   return out.sort((a, b) => b.score - a.score).slice(0, 14);
