@@ -53,7 +53,7 @@ export function topicFromQuestion(input = '') {
 }
 
 const variants = (term) => {
-  const t = normalize(term);
+  const t = normalize(term).replace(/の$/u, '');
   const out = new Set([t]);
   for (const [key, values] of SYNONYMS) {
     if (t.includes(key) || key.includes(t)) values.forEach((x) => out.add(x));
@@ -64,9 +64,11 @@ const variants = (term) => {
 };
 
 const relationTerms = (topic) => {
-  const m = topic.match(/^(.+?)と(.+?)(?:との)?(?:関係|関連|両立|整合性)$/u);
+  const m = topic.match(/^(.+?)と(.+?)(?:の)?(?:関係|関連|両立|整合性)$/u);
   if (!m) return null;
-  return [m[1], m[2]].map((x) => x.replace(/^(?:政府|我が国)の/u, '').trim()).filter(Boolean);
+  return [m[1], m[2]]
+    .map((x) => x.replace(/^(?:政府|我が国)の/u, '').replace(/の$/u, '').trim())
+    .filter(Boolean);
 };
 
 const subjectTerms = (topic) => {
