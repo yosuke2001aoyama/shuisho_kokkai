@@ -1,6 +1,7 @@
 import { VERSION, clean } from './lib/core.mjs';
 import { build, searchAll, selfTest } from './lib/draft.mjs';
 import { writtenIndexStats } from './lib/written.mjs';
+import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
   res.statusCode = status;
@@ -18,13 +19,16 @@ export default async function handler(req, res) {
   try {
     const u = new URL(req.url, 'https://local');
 
-    if (u.pathname.endsWith('/health')) return json(res, 200, { ok: true, version: VERSION });
+    if (u.pathname.endsWith('/health')) return json(res, 200, { ok: true, version: VERSION, draftingProfile: 'speech-substantive/written-defensive-official' });
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
+    if (u.pathname.endsWith('/style-guide')) return json(res, 200, getOfficialStyleGuide());
 
     if (u.pathname.endsWith('/smoke-test')) {
-      const speech = await build('speech', '我が国はアメリカの言いなりなのか。', 'prime');
+      const speech = await build('speech', '我が国はアメリカの言いなりなのか。国益に基づきどのような外交を進めるのか。', 'prime');
       const written = await build('written', '尖閣諸島、竹島及び北方領土はいずれも我が国固有の領土か。', 'minister');
       const precedent = await build('written', '暗号資産に対する基本的な認識を問う。', 'minister');
+      const defensive = await build('written', '御指摘の「特別な外交自律性」の定義及び評価基準を示されたい。', 'minister');
+      const multi = await build('speech', '物価高への対応を問う。また、賃上げをどのように実現するのか。さらに、中小企業への支援策を示されたい。', 'minister');
       const guard = await build('speech', '岸田外交の基本姿勢について、政府の認識を問う。', 'minister');
       const indexStats = await writtenIndexStats();
       const wsegs = written.segments.filter((x) => x.referenceKey);
@@ -32,33 +36,35 @@ export default async function handler(req, res) {
         speechIntent: speech.draft.includes('主体的') && !speech.draft.includes('沖縄の未来'),
         speechEvidence: speech.references.every((x) => /日米|米国|アメリカ/.test(`${x.title} ${x.phrase}`)),
         writtenNoRespondent: written.respondent === null,
-        writtenMultiIssue: written.issueCount === 3,
+        writtenMultiIssue: written.issueCount >= 3 && written.missingIssueCount === 0,
         territoryEvidence:
-          wsegs.length === 3 &&
-          /尖閣/.test(refText(written, wsegs[0])) &&
-          /竹島/.test(refText(written, wsegs[1])) &&
-          /北方/.test(refText(written, wsegs[2])),
+          wsegs.length >= 3 &&
+          wsegs.some((x) => /尖閣/.test(refText(written, x))) &&
+          wsegs.some((x) => /竹島/.test(refText(written, x))) &&
+          wsegs.some((x) => /北方/.test(refText(written, x))),
         plainStyle:
-          [speech, written, precedent, guard].every((x) => x.style === '常体') &&
+          [speech, written, precedent, defensive, multi, guard].every((x) => x.style === '常体') &&
           !/(まいります|ございます|おります|ておる|ました。|ます。|です。)/.test(
-            speech.draft + written.draft + precedent.draft + guard.draft,
+            speech.draft + written.draft + precedent.draft + defensive.draft + multi.draft + guard.draft,
           ),
+        writtenOfficialStyle: [written, precedent, defensive].every((x) => x.officialStyleCheck?.passed),
+        writtenDefensive: /具体的に意味するところが必ずしも明らかではない|一概にお答えすることは困難である/.test(defensive.draft),
+        unnumberedCoverage: multi.issueCount === 3 && multi.coverageSummary.covered === 3,
         writtenIndex: indexStats.count > 0,
         writtenSource: precedent.references.some(
           (x) => x.sourceType === 'written' && /暗号資産/.test(`${x.title} ${x.phrase}`),
         ),
         topicGuard:
           !/(国家公務員|労働基本権|人事院勧告|著作権者|公的機関が利用)/.test(guard.draft) &&
-          (guard.references.length === 0 ||
-            guard.references.every((x) => /岸田|外交/.test(`${x.title} ${x.phrase}`))),
-        alwaysDraft: Boolean(speech.draft && written.draft && precedent.draft && guard.draft),
+          (guard.references.length === 0 || guard.references.every((x) => /岸田|外交/.test(`${x.title} ${x.phrase}`))),
+        alwaysDraft: [speech, written, precedent, defensive, multi, guard].every((x) => Boolean(x.draft)),
       };
       return json(res, 200, {
         version: VERSION,
         passed: Object.values(checks).every(Boolean),
         checks,
         indexStats,
-        samples: { speech, written, precedent, guard },
+        samples: { speech, written, precedent, defensive, multi, guard },
       });
     }
 
@@ -81,6 +87,7 @@ export default async function handler(req, res) {
           evidenceCount: d.evidenceCount,
           onTopic,
           style: d.style,
+          coverage: d.coverageSummary,
           formalStyle: !/(まいります|ございます|おります|ておる|おきまして|ました。|ます。|です。)/.test(d.draft),
           draft: d.draft,
           references: d.references.map((x) => ({
@@ -93,6 +100,7 @@ export default async function handler(req, res) {
       }
       const checks = {
         allDraft: results.every((x) => x.hasDraft),
+        allCovered: results.every((x) => x.coverage.missing === 0),
         plainStyle: results.every((x) => x.style === '常体' && x.formalStyle),
         broadEvidence: results.filter((x) => x.evidenceCount > 0).length >= 3,
         onTopic: results.filter((x) => x.evidenceCount > 0).every((x) => x.onTopic),
@@ -136,8 +144,8 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ...(await build(mode, question, respondent)),
         mode,
-        generatedBy: `draft-engine-v${VERSION}`,
-        disclaimer: '起案補助用。正式使用前に主管府省で最新の事実関係及び政府方針を確認すること。',
+        generatedBy: `draft-engine-v${VERSION}-profile-20260729`,
+        disclaimer: '起案補助用。正式使用前に主管府省で最新の事実関係、政府方針、法令引用及び用例との整合性を確認すること。',
       });
     }
 
