@@ -3,6 +3,7 @@ const PRESENT_EXACT=new Map([['行い','行う'],['用い','用いる'],['率い
 function past(stem){if(PAST_EXACT.has(stem))return PAST_EXACT.get(stem);if(stem.endsWith('し'))return stem.slice(0,-1)+'した';if(stem.endsWith('き'))return stem.slice(0,-1)+'いた';if(stem.endsWith('ぎ'))return stem.slice(0,-1)+'いだ';if(/[みびに]$/.test(stem))return stem.slice(0,-1)+'んだ';if(/[りちい]$/.test(stem))return stem.slice(0,-1)+'った';return stem+'た'}
 function present(stem){if(PRESENT_EXACT.has(stem))return PRESENT_EXACT.get(stem);if(stem.endsWith('し'))return stem.slice(0,-1)+'する';if(stem.endsWith('き'))return stem.slice(0,-1)+'く';if(stem.endsWith('ぎ'))return stem.slice(0,-1)+'ぐ';if(stem.endsWith('み'))return stem.slice(0,-1)+'む';if(stem.endsWith('び'))return stem.slice(0,-1)+'ぶ';if(stem.endsWith('に'))return stem.slice(0,-1)+'ぬ';if(stem.endsWith('り'))return stem.slice(0,-1)+'る';if(stem.endsWith('ち'))return stem.slice(0,-1)+'つ';if(stem.endsWith('い'))return stem.slice(0,-1)+'う';return stem+'る'}
 export function finalizeStyle(input=''){let s=String(input).normalize('NFKC')
+.replace(/^(?:委員|議員)(?:御)?指摘の(?:ように[、,]?)?/u,'')
 .replace(/行ってまいりたいと思っております/g,'行っていきたいと考えている')
 .replace(/進めてまいりたいと考えております/g,'進めていきたいと考えている')
 .replace(/てまいりたいと思っております/g,'ていきたいと考えている')
