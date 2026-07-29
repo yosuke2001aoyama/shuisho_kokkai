@@ -36,12 +36,17 @@ const STOP = new Set([
   '問う', '伺う', '示す', '明らかにする', 'どのように', 'なぜ', 'いかん', '必要性', '在り方',
 ]);
 
+const QUESTIONISH = /(?:か|どうか|なのか|いかん|問う|伺う|示されたい|明らかにされたい|説明されたい|求める|見解を示されたい|認識を問う)[。？！?]*$/u;
+const CONNECTOR = /(?:^|[。？！?])\s*(?:また|さらに|加えて|併せて|あわせて|その上で|なお)[、，]\s*/u;
+const MARKER = /^(?:問\s*)?(?:(?:[一二三四五六七八九十百]+|\d+|[①-⑳])(?:の(?:[一二三四五六七八九十]+|\d+))?|[（(](?:[一二三四五六七八九十]+|\d+)[）)])\s*[　 、，．.\-]*/u;
+
 const normalize = (s = '') => clean(String(s).normalize('NFKC'));
+const stripMarker = (s = '') => normalize(s).replace(MARKER, '').trim();
 
 export function topicFromQuestion(input = '') {
-  let s = normalize(input)
-    .replace(/^(?:問\s*)?(?:[一二三四五六七八九十]+|\d+)[　\s、．.]*/, '')
-    .replace(/[。?？]+$/, '')
+  let s = stripMarker(input)
+    .replace(/[。?？!！]+$/u, '')
+    .replace(/(?:への|に対する)(?:政府の)?(?:対応|対策|措置)(?:を)?(?:問う|伺う|求める|示されたい|明らかにされたい|説明されたい)$/u, '')
     .replace(/に対する(?:政府の)?(?:基本的な)?(?:見解|認識|考え|対応|方針|評価|説明)(?:を)?(?:問う|伺う|求める|示されたい|明らかにされたい|説明されたい)$/u, '')
     .replace(/(?:について|に関して)?[、,\s]*(?:(?:政府|我が国)(?:の)?)?(?:基本的な)?(?:見解|認識|考え|対応|方針|評価|説明)(?:を)?(?:問う|伺う|求める|示されたい|明らかにされたい|説明されたい)$/u, '')
     .replace(/(?:について|に関して)[、,\s]*(?:問う|伺う|説明を求める)$/u, '')
@@ -49,10 +54,11 @@ export function topicFromQuestion(input = '') {
     .replace(/を(?:強化|実施|推進|実現|確保|改善|解決|検討|対応)するのか$/u, '')
     .replace(/はどのように(?:ある|なる|する)べきか$/u, '')
     .replace(/は(?:妥当|適切|必要|十分)なのか$/u, '')
+    .replace(/(?:を)?(?:問う|伺う|示されたい|明らかにされたい|説明されたい)$/u, '')
     .replace(/について$/u, '')
     .replace(/[、,\s]+$/u, '')
     .trim();
-  return s || normalize(input);
+  return s || stripMarker(input);
 }
 
 const variants = (term) => {
@@ -90,10 +96,10 @@ const subjectTerms = (topic) => {
 };
 
 export function makeIssue(label, concept = null) {
-  const normalizedLabel = normalize(label);
+  const normalizedLabel = stripMarker(label);
   if (concept) {
     return enrichIssueIntent({
-      label: normalizedLabel,
+      label: normalizedLabel || concept.id,
       topic: concept.id,
       concept,
       anchors: concept.anchors,
@@ -115,18 +121,83 @@ export function makeIssue(label, concept = null) {
   return enrichIssueIntent({ label: normalizedLabel, topic, concept: null, anchors, required, queries });
 }
 
-export function splitIssues(question) {
-  const normalized = normalize(question);
-  const concepts = CONCEPTS.filter((c) => c.match.test(normalized));
-  if (concepts.length) return concepts.map((c) => makeIssue(c.id, c));
+function balancedSentences(input = '') {
+  const text = String(input).normalize('NFKC');
+  const out = [];
+  let start = 0;
+  let round = 0;
+  let quote = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if ('([（［'.includes(ch)) round += 1;
+    if (')]）］'.includes(ch)) round = Math.max(0, round - 1);
+    if ('「『'.includes(ch)) quote += 1;
+    if ('」』'.includes(ch)) quote = Math.max(0, quote - 1);
+    if ('。？！?'.includes(ch) && round === 0 && quote === 0) {
+      const piece = normalize(text.slice(start, i + 1));
+      if (piece) out.push(piece);
+      start = i + 1;
+    }
+  }
+  const tail = normalize(text.slice(start));
+  if (tail) out.push(tail);
+  return out;
+}
 
-  const numbered = String(question)
-    .normalize('NFKC')
-    .split(/(?=(?:^|\n)\s*(?:[一二三四五六七八九十]+|\d+)[　\s、．.])/u)
+function splitConnectorClauses(sentence = '') {
+  const text = normalize(sentence);
+  const pieces = text.split(/(?=(?:また|さらに|加えて|併せて|あわせて|その上で|なお)[、，])/u)
+    .map((x) => x.replace(/^(?:また|さらに|加えて|併せて|あわせて|その上で|なお)[、，]\s*/u, '').trim())
+    .filter((x) => x.length >= 5);
+  return pieces.length ? pieces : [text];
+}
+
+function explicitBlocks(question = '') {
+  const raw = String(question).normalize('NFKC');
+  const markerSplit = raw
+    .split(/(?=(?:^|\n)\s*(?:(?:[一二三四五六七八九十百]+|\d+|[①-⑳])(?:の(?:[一二三四五六七八九十]+|\d+))?|[（(](?:[一二三四五六七八九十]+|\d+)[）)])\s*[　 、，．.\-])/u)
     .map(normalize)
     .filter((x) => x.length >= 4);
-  if (numbered.length > 1) return numbered.map((x) => makeIssue(x));
+  if (markerSplit.length > 1) return markerSplit;
 
-  const lines = String(question).split(/\n+/).map(normalize).filter((x) => x.length >= 4);
-  return lines.length > 1 ? lines.map((x) => makeIssue(x)) : [makeIssue(normalized)];
+  const lines = raw.split(/\n+/u).map(normalize).filter((x) => x.length >= 4);
+  if (lines.length > 1 && lines.filter((x) => QUESTIONISH.test(x) || MARKER.test(x)).length >= 2) return lines;
+
+  const sentences = balancedSentences(raw);
+  const questions = sentences
+    .flatMap(splitConnectorClauses)
+    .filter((x) => QUESTIONISH.test(x) || /(?:また|さらに|併せて|加えて)[、，]/u.test(x));
+  if (questions.length > 1) return questions;
+
+  if (CONNECTOR.test(raw)) {
+    const connectorPieces = raw
+      .split(/(?:また|さらに|加えて|併せて|あわせて|その上で|なお)[、，]/u)
+      .map(normalize)
+      .filter((x) => x.length >= 5);
+    if (connectorPieces.length > 1) return connectorPieces;
+  }
+  return [normalize(raw)];
+}
+
+function conceptIssuesForBlock(block) {
+  const concepts = CONCEPTS.filter((c) => c.match.test(block));
+  if (!concepts.length) return [makeIssue(block)];
+  const out = concepts.map((c) => makeIssue(c.id, c));
+  const stripped = concepts.reduce((s, c) => s.replace(c.match, ' '), block)
+    .replace(/(?:いずれも|及び|並びに|また|さらに|について|に関する|政府の見解を問う)/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (concepts.length === 1 && stripped.length >= 14 && QUESTIONISH.test(block)) out.push(makeIssue(block));
+  return out;
+}
+
+export function splitIssues(question) {
+  const blocks = explicitBlocks(question);
+  const issues = blocks.flatMap(conceptIssuesForBlock);
+  const unique = [];
+  for (const issue of issues) {
+    const key = `${issue.topic || ''}:${issue.label || ''}`;
+    if (!unique.some((x) => `${x.topic || ''}:${x.label || ''}` === key)) unique.push(issue);
+  }
+  return unique.length ? unique : [makeIssue(normalize(question))];
 }
