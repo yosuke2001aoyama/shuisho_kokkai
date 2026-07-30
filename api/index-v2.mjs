@@ -1,5 +1,5 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v22.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v23.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
@@ -84,7 +84,7 @@ async function runSmokeCase(name) {
       onlyMeasuresAndConclusions: sameKinds(draft, ['conclusion', 'measures']),
       noUnaskedRecognitionReasonFuture: !/【政府の認識】|【理由・根拠】|【今後の方針】/.test(draft.draft),
       smallBusinessAnswerSubstantive: /価格転嫁|生産性向上|資金繰り|人材確保|事業承継/.test(draft.draft),
-      noOffTopicOrPageChrome: !/イン・ローマ|日本らしい生活|外務省だけ|トップ\s*>|&emsp;|会議等一覧/.test(draft.draft),
+      noOffTopicOrPageChrome: !/イン・ローマ|日本らしい生活|外務省だけ|トップ\s*>|&emsp;|会議等一覧/.test(`${draft.draft} ${draft.references.map((x) => x.phrase).join(' ')}`),
     };
     return { name, passed: Object.values(checks).every(Boolean), checks, sample: draft };
   }
@@ -129,7 +129,7 @@ const REGRESSION_CASES = [
   { q: '少子化対策をどのように強化するのか。', terms: /少子化|少子|子育て/, expectedKinds: ['conclusion', 'measures'] },
   { q: '台湾海峡の平和と安定に対する政府の認識を問う。', terms: /台湾海峡|台湾/, expectedKinds: ['recognition'] },
   { q: '生成AIと著作権の関係について政府の見解を問う。', terms: /(?:生成)?AI.*著作権|著作権.*(?:生成)?AI|人工知能/, expectedKinds: ['recognition'] },
-  { q: 'なぜ防災対策の強化が必要なのか。', terms: /防災|災害/, expectedKinds: ['conclusion', 'reason', 'measures'] },
+  { q: 'なぜ防災対策の強化が必要なのか。', terms: /防災|災害/, expectedKinds: ['conclusion', 'reason'] },
 ];
 
 async function runRegressionCase(index) {
@@ -144,6 +144,8 @@ async function runRegressionCase(index) {
     noDebateFragments: !/お尋ねの|御指摘|委員|議員|昨日は|私も|連合さん|まあ|おっしゃ|通告|時間の関係/.test(draft.draft),
     plainStyle: draft.style === '常体' && !/(まいります|ございます|おります|ておる|おきまして|ました。|ます。|です。)/.test(draft.draft),
     onTopic,
+    noUnaskedMeasuresForWhy: index !== 4 || !/【具体的な対応】/.test(draft.draft),
+    currentTaiwanRecognition: index !== 2 || /国際社会の安全と繁栄|対話により平和的に解決/.test(draft.draft),
   };
   return {
     index,
@@ -163,7 +165,7 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ok: true,
         version: PROFILE_VERSION,
-        draftingProfile: 'oral-question-bound/written-question-bound-cabinet-document',
+        draftingProfile: 'oral-explicit-dimensions/written-question-bound-cabinet-document',
       });
     }
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
