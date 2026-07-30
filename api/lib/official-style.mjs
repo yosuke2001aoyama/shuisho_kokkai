@@ -34,6 +34,11 @@ export const OFFICIAL_STYLE_SOURCES = [
     url: 'https://www.shugiin.go.jp/internet/itdb_shitsumon.nsf/html/shitsumon/b219071.htm',
   },
   {
+    title: '拉致被害者に対する基本方針に関する質問に対する答弁書',
+    sourceName: '参議院',
+    url: 'https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/201/touh/t201002.htm',
+  },
+  {
     title: '国会答弁が完成するまで',
     sourceName: '日本経済研究センター',
     url: 'https://www.jcer.or.jp/j-column/column-komine/20191016-4.html',

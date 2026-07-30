@@ -1,6 +1,7 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v27.mjs';
-import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v28.mjs';
+import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest-v28.mjs';
+import { QUALITY_BACKTEST_CASES, runQualityBacktests } from '../lib/quality-backtest-v28.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
@@ -200,7 +201,7 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ok: true,
         version: PROFILE_VERSION,
-        draftingProfile: 'temporal-precedent-gated-role-aware-oral/written-cabinet-document',
+        draftingProfile: 'temporally-gated-demand-calibrated-role-aware-oral/written-cabinet-document',
       });
     }
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
@@ -216,6 +217,29 @@ export default async function handler(req, res) {
         return json(res, 400, {
           error: 'Unknown temporal-test case',
           cases: listTemporalBacktests().map((testCase) => testCase.id),
+        });
+      }
+      return json(res, 200, report);
+    }
+
+    if (u.pathname.endsWith('/quality-test')) {
+      const caseId = clean(u.searchParams.get('case') || '');
+      if (caseId === 'list') {
+        return json(res, 200, {
+          version: PROFILE_VERSION,
+          cases: QUALITY_BACKTEST_CASES.map(({ id, title, mode, question }) => ({
+            id,
+            title,
+            mode,
+            question,
+          })),
+        });
+      }
+      const report = await runQualityBacktests(caseId);
+      if (!report) {
+        return json(res, 400, {
+          error: 'Unknown quality-test case',
+          cases: QUALITY_BACKTEST_CASES.map((testCase) => testCase.id),
         });
       }
       return json(res, 200, report);

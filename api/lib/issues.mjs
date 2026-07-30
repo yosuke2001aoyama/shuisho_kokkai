@@ -182,13 +182,15 @@ function explicitBlocks(question = '') {
 function conceptIssuesForBlock(block) {
   const concepts = CONCEPTS.filter((c) => c.match.test(block));
   if (!concepts.length) return [makeIssue(block)];
-  const out = concepts.map((c) => makeIssue(c.id, c));
-  const stripped = concepts.reduce((s, c) => s.replace(c.match, ' '), block)
-    .replace(/(?:いずれも|及び|並びに|また|さらに|について|に関する|政府の見解を問う)/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (concepts.length === 1 && stripped.length >= 14 && QUESTIONISH.test(block)) out.push(makeIssue(block));
-  return out;
+  // A known subject and the wording that asks about it are not two issues.
+  // Retaining the whole block as the label also preserves whether the user
+  // asked for a date, a reason, an assessment or measures.
+  if (concepts.length === 1) return [makeIssue(block, concepts[0])];
+
+  // Multiple independently established subjects in the same block still need
+  // separate answers (for example, Senkaku, Takeshima and the Northern
+  // Territories in one sentence).
+  return concepts.map((concept) => makeIssue(concept.id, concept));
 }
 
 export function splitIssues(question) {
