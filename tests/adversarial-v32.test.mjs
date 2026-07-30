@@ -23,6 +23,7 @@ test('未知の聞き方を含む口頭・答弁書各1000件を公開判定ま�
   assert.equal(report.trialCount, 2000);
   assert.equal(report.oralTrialCount, 1000);
   assert.equal(report.writtenTrialCount, 1000);
+  assert.equal(report.version, '33.0');
   assert.equal(report.failureCount, 0, JSON.stringify(report.failures.slice(0, 5), null, 2));
   assert.equal(report.passed, true);
 });

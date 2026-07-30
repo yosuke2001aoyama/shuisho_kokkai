@@ -1,5 +1,5 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v32.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v33.mjs';
 import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest-v30.mjs';
 import { QUALITY_BACKTEST_CASES, runQualityBacktests } from '../lib/quality-backtest-v30.mjs';
 import { listBreadthBacktests, runBreadthBacktests } from '../lib/breadth-backtest-v29.mjs';
@@ -335,7 +335,7 @@ export default async function handler(req, res) {
       const draft = await build(mode, question, respondent);
       if (draft.publicationGate?.passed !== true) {
         return json(res, 422, {
-          error: '質問への直接回答を一次資料で裏付けられないため、不正確な汎用文は表示しませんでした。質問の対象、時点又は求める判断を確認してください。',
+          error: '質問への直接回答として成立させるための対象又は判断事項を特定できませんでした。質問の対象、時点又は求める判断を確認してください。',
           reasons: draft.publicationGate?.reasons || [],
           version: PROFILE_VERSION,
         });
