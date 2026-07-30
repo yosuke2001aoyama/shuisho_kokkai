@@ -1,5 +1,5 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v21.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v22.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
@@ -66,10 +66,13 @@ async function runSmokeCase(name) {
   if (name === 'reason') {
     const draft = await build('speech', 'なぜ賃上げが必要なのか。その理由を問う。', 'minister');
     const checks = {
+      singleCoherentIssue: draft.issueCount === 1,
       onlyConclusionAndReason: sameKinds(draft, ['conclusion', 'reason']),
       reasonPresent: /【理由・根拠】/.test(draft.draft),
       noUnaskedMeasuresOrFuture: !/【具体的な対応】|【今後の方針】/.test(draft.draft),
       noDebateFragments: !/お尋ねの|御指摘|委員|議員|昨日は|私も|連合さん|まあ|おっしゃ|通告|時間の関係/.test(draft.draft),
+      substantiveReason: /購買力|個人消費|成長と分配|物価上昇/.test(draft.draft),
+      noOffTopicSources: !/再審|即時抗告|伝聞証拠|刑事訴訟|予定価格|総合評価落札|予算の編成/.test(draft.draft),
     };
     return { name, passed: Object.values(checks).every(Boolean), checks, sample: draft };
   }
@@ -80,6 +83,8 @@ async function runSmokeCase(name) {
       oneBlockPerIssue: (draft.draft.match(/^● 論点/gmu) || []).length === draft.issueCount,
       onlyMeasuresAndConclusions: sameKinds(draft, ['conclusion', 'measures']),
       noUnaskedRecognitionReasonFuture: !/【政府の認識】|【理由・根拠】|【今後の方針】/.test(draft.draft),
+      smallBusinessAnswerSubstantive: /価格転嫁|生産性向上|資金繰り|人材確保|事業承継/.test(draft.draft),
+      noOffTopicOrPageChrome: !/イン・ローマ|日本らしい生活|外務省だけ|トップ\s*>|&emsp;|会議等一覧/.test(draft.draft),
     };
     return { name, passed: Object.values(checks).every(Boolean), checks, sample: draft };
   }
