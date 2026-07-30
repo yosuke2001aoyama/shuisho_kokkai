@@ -1,9 +1,10 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v31.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v32.mjs';
 import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest-v30.mjs';
 import { QUALITY_BACKTEST_CASES, runQualityBacktests } from '../lib/quality-backtest-v30.mjs';
 import { listBreadthBacktests, runBreadthBacktests } from '../lib/breadth-backtest-v29.mjs';
 import { listMegaBacktests, runMegaBacktests } from '../lib/mega-backtest-v30.mjs';
+import { runAdversarialBacktests } from '../lib/adversarial-backtest-v32.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
@@ -277,6 +278,10 @@ export default async function handler(req, res) {
       return json(res, 200, report);
     }
 
+    if (u.pathname.endsWith('/adversarial-test')) {
+      return json(res, 200, await runAdversarialBacktests());
+    }
+
     if (u.pathname.endsWith('/smoke-test')) {
       const name = clean(u.searchParams.get('case'));
       if (!name) return json(res, 200, { version: PROFILE_VERSION, cases: SMOKE_CASES });
@@ -327,8 +332,16 @@ export default async function handler(req, res) {
         ? body.respondent
         : 'minister';
       if (question.length < 8) return json(res, 400, { error: '質問を8文字以上で入力してください。' });
+      const draft = await build(mode, question, respondent);
+      if (draft.publicationGate?.passed !== true) {
+        return json(res, 422, {
+          error: '質問への直接回答を一次資料で裏付けられないため、不正確な汎用文は表示しませんでした。質問の対象、時点又は求める判断を確認してください。',
+          reasons: draft.publicationGate?.reasons || [],
+          version: PROFILE_VERSION,
+        });
+      }
       return json(res, 200, {
-        ...(await build(mode, question, respondent)),
+        ...draft,
         mode,
         generatedBy: `draft-engine-profile-${PROFILE_VERSION}`,
         disclaimer: '起案補助用。正式使用前に主管府省で最新の事実関係、政府方針、法令引用及び用例との整合性を確認すること。',

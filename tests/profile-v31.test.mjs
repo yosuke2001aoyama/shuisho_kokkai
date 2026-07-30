@@ -59,12 +59,12 @@ test('口頭答弁は同じ役職の会見を他役職会見より優先する',
   assert.equal(sourceRank({ sourceType: 'answer', category: 'minister' }, 'speech', 'prime'), 2);
 });
 
-test('口頭・答弁書を各1284件プロファイル31で全件検査する', async () => {
+test('口頭・答弁書を各1308件プロファイル32の経路で全件検査する', async () => {
   const report = await runMegaBacktests();
-  assert.equal(report.version, '31.0');
-  assert.equal(report.trialCount, 2568);
-  assert.equal(report.oralTrialCount, 1284);
-  assert.equal(report.writtenTrialCount, 1284);
+  assert.equal(report.version, '32.0');
+  assert.equal(report.trialCount, 2616);
+  assert.equal(report.oralTrialCount, 1308);
+  assert.equal(report.writtenTrialCount, 1308);
   assert.equal(report.failureCount, 0);
   assert.equal(report.unnecessaryCrossFormSourceCount, 0);
   assert.equal(report.passed, true);

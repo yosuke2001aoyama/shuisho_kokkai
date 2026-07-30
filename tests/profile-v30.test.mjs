@@ -29,9 +29,9 @@ test('profile 30 applies form-specific source priority', () => {
   ]);
 });
 
-test('diplomacy and security matrix has 64 verified decision categories', async () => {
+test('diplomacy and security matrix has 66 verified decision categories', async () => {
   assert.equal(PROFILE_VERSION, '30.0');
-  assert.equal(FOREIGN_SECURITY_CASES.length, 64);
+  assert.equal(FOREIGN_SECURITY_CASES.length, 66);
   for (const entry of FOREIGN_SECURITY_CASES) {
     for (const mode of ['speech', 'written']) {
       const draft = await build(mode, entry.question, 'minister');
@@ -71,10 +71,10 @@ test('Graham reconstruction uses only pre-remark oral precedents', async () => {
 
 test('口頭・答弁書を各1,000件以上検査し不要な形式間引用を生じない', async () => {
   const report = await runMegaBacktests();
-  assert.equal(report.trialCount, 2568);
-  assert.equal(report.oralTrialCount, 1284);
-  assert.equal(report.writtenTrialCount, 1284);
-  assert.equal(report.diplomacySecurityCaseCount, 64);
+  assert.equal(report.trialCount, 2616);
+  assert.equal(report.oralTrialCount, 1308);
+  assert.equal(report.writtenTrialCount, 1308);
+  assert.equal(report.diplomacySecurityCaseCount, 66);
   assert.equal(report.failureCount, 0);
   assert.equal(report.unnecessaryCrossFormSourceCount, 0);
   assert.equal(report.passed, true);
