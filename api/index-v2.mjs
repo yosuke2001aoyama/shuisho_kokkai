@@ -43,47 +43,27 @@ export default async function handler(req, res) {
     if (u.pathname.endsWith('/style-guide')) return json(res, 200, getOfficialStyleGuide());
 
     if (u.pathname.endsWith('/smoke-test')) {
-      const policySpeech = await build(
-        'speech',
-        '物価高への認識と具体的な対応、今後の方針を問う。',
-        'minister',
-      );
-      const simpleSpeech = await build(
-        'speech',
-        '尖閣諸島は我が国固有の領土か。',
-        'minister',
-      );
-      const reasonSpeech = await build(
-        'speech',
-        'なぜ賃上げが必要なのか。その理由を問う。',
-        'minister',
-      );
-      const multiSpeech = await build(
-        'speech',
-        '物価高への対応を問う。また、中小企業への支援策を示されたい。',
-        'minister',
-      );
-      const written = await build(
-        'written',
-        '尖閣諸島、竹島及び北方領土はいずれも我が国固有の領土か。',
-        'minister',
-      );
-      const vagueWritten = await build(
-        'written',
-        '御指摘の「真に十分な少子化対策」とは何か。政府の評価基準を示されたい。',
-        'minister',
-      );
-      const privateWritten = await build(
-        'written',
-        '民間報道機関が個別の取材で得た情報を政府は全て把握しているか。',
-        'minister',
-      );
-      const hypotheticalWritten = await build(
-        'written',
-        '仮に全ての原子力発電所を直ちに廃止した場合の影響を網羅的に示されたい。',
-        'minister',
-      );
-      const indexStats = await writtenIndexStats();
+      const [
+        policySpeech,
+        simpleSpeech,
+        reasonSpeech,
+        multiSpeech,
+        written,
+        vagueWritten,
+        privateWritten,
+        hypotheticalWritten,
+        indexStats,
+      ] = await Promise.all([
+        build('speech', '物価高への認識と具体的な対応、今後の方針を問う。', 'minister'),
+        build('speech', '尖閣諸島は我が国固有の領土か。', 'minister'),
+        build('speech', 'なぜ賃上げが必要なのか。その理由を問う。', 'minister'),
+        build('speech', '物価高への対応を問う。また、中小企業への支援策を示されたい。', 'minister'),
+        build('written', '尖閣諸島、竹島及び北方領土はいずれも我が国固有の領土か。', 'minister'),
+        build('written', '御指摘の「真に十分な少子化対策」とは何か。政府の評価基準を示されたい。', 'minister'),
+        build('written', '民間報道機関が個別の取材で得た情報を政府は全て把握しているか。', 'minister'),
+        build('written', '仮に全ての原子力発電所を直ちに廃止した場合の影響を網羅的に示されたい。', 'minister'),
+        writtenIndexStats(),
+      ]);
       const wsegs = written.segments.filter((x) => x.referenceKey);
       const allDrafts = [policySpeech, simpleSpeech, reasonSpeech, multiSpeech, written, vagueWritten, privateWritten, hypotheticalWritten];
       const checks = {
@@ -157,13 +137,12 @@ export default async function handler(req, res) {
         { q: '生成AIと著作権の関係について政府の見解を問う。', terms: /(?:生成)?AI.*著作権|著作権.*(?:生成)?AI|人工知能/, expectedKinds: ['recognition'] },
         { q: 'なぜ防災対策の強化が必要なのか。', terms: /防災|災害/, expectedKinds: ['conclusion', 'reason', 'measures'] },
       ];
-      const results = [];
-      for (const c of cases) {
+      const results = await Promise.all(cases.map(async (c) => {
         const d = await build('speech', c.q, 'minister');
         const onTopic =
           d.references.length === 0 ||
           d.references.every((x) => c.terms.test(`${x.title} ${x.phrase}`));
-        results.push({
+        return {
           question: c.q,
           hasDraft: Boolean(d.draft),
           evidenceCount: d.evidenceCount,
@@ -182,8 +161,8 @@ export default async function handler(req, res) {
             phrase: x.phrase,
             url: x.url,
           })),
-        });
-      }
+        };
+      }));
       const checks = {
         allDraft: results.every((x) => x.hasDraft),
         allCovered: results.every((x) => x.coverage.missing === 0),
