@@ -70,10 +70,12 @@ if(source.sourceType==='interview')return 3;
 if(source.sourceType==='answer')return 4;
 return 5}
 if(source.sourceType==='answer'&&source.category===respondent)return 0;
-if(source.sourceType==='answer')return 1;
-if(source.sourceType==='press')return 2;
-if(source.sourceType==='interview')return 3;
-if(source.sourceType==='fact')return 4;
+if(source.sourceType==='press'&&source.category===respondent)return 1;
+if(source.sourceType==='answer')return 2;
+if(source.sourceType==='press')return 3;
+if(source.sourceType==='interview'&&source.category===respondent)return 4;
+if(source.sourceType==='interview')return 5;
+if(source.sourceType==='fact')return 6;
 if(source.sourceType==='written')return 9;
 return 10}
 export function acceptable(source,issue){if(!source||BAD.test(source.phrase||'')||!subjectMatches(source.phrase,issue,'',false))return false;return relevance(source.phrase,issue,source.title)>=45&&(ANSWERISH.test(source.phrase)||source.sourceType==='fact')}

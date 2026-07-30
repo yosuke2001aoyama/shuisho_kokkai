@@ -1,5 +1,5 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v30.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v31.mjs';
 import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest-v30.mjs';
 import { QUALITY_BACKTEST_CASES, runQualityBacktests } from '../lib/quality-backtest-v30.mjs';
 import { listBreadthBacktests, runBreadthBacktests } from '../lib/breadth-backtest-v29.mjs';

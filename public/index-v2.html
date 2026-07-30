@@ -29,6 +29,10 @@
       --soft-red: #fbf0f1;
       --soft-yellow: #fff7d8;
       --evidence: #fff1a8;
+      --usage-reference: #dceeff;
+      --usage-connector: #e8f2dd;
+      --usage-limit: #f9e1e5;
+      --usage-conclusion: #eee5ff;
       --shadow: 0 10px 30px rgba(25, 40, 63, .08);
     }
 
@@ -279,6 +283,59 @@
       text-decoration: none;
       background: linear-gradient(transparent 55%, var(--evidence) 55%);
       border-bottom: 1px dotted #917624;
+    }
+    .usage-link {
+      color: inherit;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(28, 51, 78, .35);
+      border-radius: 2px;
+      padding: 0 .05em;
+    }
+    .usage-reference { background: linear-gradient(transparent 36%, var(--usage-reference) 36%); }
+    .usage-connector { background: linear-gradient(transparent 36%, var(--usage-connector) 36%); }
+    .usage-limit { background: linear-gradient(transparent 36%, var(--usage-limit) 36%); }
+    .usage-conclusion { background: linear-gradient(transparent 36%, var(--usage-conclusion) 36%); }
+    .usage-reference-block {
+      margin-bottom: 26px;
+      padding: 18px;
+      border: 1px solid #bdcada;
+      background: #f8fbff;
+    }
+    .usage-reference-block h3 { margin: 0 0 4px; }
+    .usage-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 12px 0;
+    }
+    .usage-legend span {
+      padding: 3px 7px;
+      border: 1px solid rgba(40, 58, 80, .15);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .draft-usage-card {
+      padding: 13px;
+      margin-top: 9px;
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--red);
+      background: var(--white);
+      scroll-margin-top: 100px;
+    }
+    .draft-usage-card.flash { outline: 3px solid #6da4d8; }
+    .draft-usage-card h4 {
+      margin: 2px 0 6px;
+      font-family: "Yu Mincho", serif;
+      color: var(--navy);
+      font-size: 16px;
+    }
+    .draft-usage-card p { margin: 5px 0; font-size: 12px; }
+    .draft-usage-card .usage-source { color: var(--muted); font-size: 11px; }
+    .draft-usage-card .usage-quote {
+      padding: 8px 10px;
+      background: var(--soft-blue);
+      font-family: "Yu Mincho", serif;
+      font-size: 12px;
     }
     .review {
       margin: 0;
@@ -616,6 +673,7 @@
         <div class="badges">
           <span class="badge">${esc(sourceType)}</span>
           ${category ? `<span class="badge">${esc(category)}${item.borrowed ? '（別答弁者）' : ''}</span>` : ''}
+          ${item.transcriptBasis ? `<span class="badge">${esc(item.transcriptBasis)}</span>` : ''}
         </div>
         <h4>${esc(item.title || '参考資料')}</h4>
         <div class="meta">${esc(item.date || '')} ${esc(item.speaker || '')} ${esc(item.speakerPosition || '')}｜${esc(item.sourceName || '')}</div>
@@ -624,34 +682,97 @@
       </article>`;
     }
 
+    function usageTone(category) {
+      if (/照応|主体|時点/.test(category)) return 'usage-reference';
+      if (/助詞|接続|射程/.test(category)) return 'usage-connector';
+      if (/限定|法的評価/.test(category)) return 'usage-limit';
+      return 'usage-conclusion';
+    }
+
+    function linkedText(text, referenceKey) {
+      const safe = esc(text);
+      return referenceKey
+        ? `<a class="source-link" href="#ref-${esc(referenceKey)}" data-ref="${esc(referenceKey)}">${safe}</a>`
+        : safe;
+    }
+
+    function renderSegment(segment) {
+      const text = String(segment.text || '');
+      const spans = [...(segment.usageSpans || [])]
+        .filter((span) => Number.isInteger(span.start) && Number.isInteger(span.end))
+        .sort((a, b) => a.start - b.start);
+      if (!spans.length) return linkedText(text, segment.referenceKey);
+      let cursor = 0;
+      let html = '';
+      for (const span of spans) {
+        if (span.start < cursor || span.end > text.length) continue;
+        html += linkedText(text.slice(cursor, span.start), segment.referenceKey);
+        html += `<a class="usage-link ${usageTone(span.category)}" href="#usage-${esc(span.usageKey)}" data-usage="${esc(span.usageKey)}">${esc(text.slice(span.start, span.end))}</a>`;
+        cursor = span.end;
+      }
+      html += linkedText(text.slice(cursor), segment.referenceKey);
+      return html;
+    }
+
+    function usageExampleCard(item) {
+      return `<article class="draft-usage-card" id="usage-${esc(item.usageKey)}">
+        <span class="badge">${esc(item.category)}</span>
+        <h4>${esc(item.phrase)}</h4>
+        <p>${esc(item.use)}</p>
+        <div class="usage-quote">${esc(item.example)}</div>
+        <p class="usage-source">${esc(item.date || '')} ${esc(item.sourceName || '')}｜${esc(item.title || '')}</p>
+        <a href="${esc(item.url || '#')}" target="_blank" rel="noopener">参照した公式文書を開く ↗</a>
+      </article>`;
+    }
+
     function renderDraft(data) {
       const references = data.references || [];
+      const usageExamples = data.usageExamples || [];
       const notes = data.reviewNotes || [];
       lastDraft = data.draft || (data.segments || []).map((segment) => segment.text).join('');
       $('#draftTitle').textContent = data.title || '原案';
       $('#emptyState').classList.add('hidden');
       $('#draftResult').classList.remove('hidden');
       $('#copyBtn').classList.remove('hidden');
-      $('#draftOutput').innerHTML = (data.segments || []).map((segment) => {
-        const text = esc(segment.text);
-        return segment.referenceKey
-          ? `<a class="source-link" href="#ref-${esc(segment.referenceKey)}" data-ref="${esc(segment.referenceKey)}">${text}</a>`
-          : text;
-      }).join('');
+      $('#draftOutput').innerHTML = (data.segments || []).map(renderSegment).join('');
       $('#review').classList.toggle('hidden', !notes.length);
       $('#review').innerHTML = notes.length
         ? `<strong>提出前確認</strong><ul>${notes.map((note) => `<li>${esc(note)}</li>`).join('')}</ul>`
         : '';
-      $('#references').classList.toggle('hidden', !references.length);
-      $('#references').innerHTML = references.length
+      $('#references').classList.toggle('hidden', !references.length && !usageExamples.length);
+      const usageHtml = usageExamples.length
+        ? `<section class="usage-reference-block" aria-label="答弁書の表現用例">
+             <h3>答弁書の表現用例</h3>
+             <p class="ref-summary">本文を「御指摘の」のような短い句、助詞、接続語まで色分けしました。ハイライトを選ぶと、その句の公式用例へ移動します。</p>
+             <div class="usage-legend">
+               <span class="usage-reference">照応・主体・時点</span>
+               <span class="usage-connector">助詞・接続・射程</span>
+               <span class="usage-limit">限定・法的評価</span>
+               <span class="usage-conclusion">結論</span>
+             </div>
+             ${usageExamples.map(usageExampleCard).join('')}
+           </section>`
+        : '';
+      const referenceHtml = references.length
         ? `<h3>${esc(data.referenceLabel || '根拠・前例')}</h3>
-           <p class="ref-summary">使用した一次資料・用例 ${references.length}件。黄色の下線部分から該当資料へ移動できます。</p>
+           <p class="ref-summary">使用した一次資料 ${references.length}件。黄色の下線部分から該当資料へ移動できます。</p>
            ${references.map((item) => referenceCard(item, `ref-${item.referenceKey}`)).join('')}`
         : '';
+      $('#references').innerHTML = usageHtml + referenceHtml;
       $$('.source-link').forEach((link) => {
         link.addEventListener('click', (event) => {
           event.preventDefault();
           const target = document.getElementById(`ref-${link.dataset.ref}`);
+          if (!target) return;
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.classList.add('flash');
+          setTimeout(() => target.classList.remove('flash'), 1500);
+        });
+      });
+      $$('.usage-link').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          const target = document.getElementById(`usage-${link.dataset.usage}`);
           if (!target) return;
           target.scrollIntoView({ behavior: 'smooth', block: 'center' });
           target.classList.add('flash');

@@ -15,9 +15,9 @@ test('profile 30 applies form-specific source priority', () => {
     [sourceType, sourceRank({ sourceType, category: 'minister' }, 'written', 'minister')]);
   assert.deepEqual(oral, [
     ['answer', 0],
-    ['press', 2],
-    ['interview', 3],
-    ['fact', 4],
+    ['press', 1],
+    ['interview', 4],
+    ['fact', 6],
     ['written', 9],
   ]);
   assert.deepEqual(written, [
@@ -69,9 +69,11 @@ test('Graham reconstruction uses only pre-remark oral precedents', async () => {
     reference.sourceType === 'answer' && reference.date < report.results[0].cutoff), true);
 });
 
-test('1,000-plus matrix passes without unnecessary cross-form citations', async () => {
+test('口頭・答弁書を各1,000件以上検査し不要な形式間引用を生じない', async () => {
   const report = await runMegaBacktests();
-  assert.equal(report.trialCount, 1712);
+  assert.equal(report.trialCount, 2568);
+  assert.equal(report.oralTrialCount, 1284);
+  assert.equal(report.writtenTrialCount, 1284);
   assert.equal(report.diplomacySecurityCaseCount, 64);
   assert.equal(report.failureCount, 0);
   assert.equal(report.unnecessaryCrossFormSourceCount, 0);
