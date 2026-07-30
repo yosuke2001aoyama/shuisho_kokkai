@@ -1,8 +1,9 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v29.mjs';
-import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest-v29.mjs';
-import { QUALITY_BACKTEST_CASES, runQualityBacktests } from '../lib/quality-backtest-v29.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v30.mjs';
+import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest-v30.mjs';
+import { QUALITY_BACKTEST_CASES, runQualityBacktests } from '../lib/quality-backtest-v30.mjs';
 import { listBreadthBacktests, runBreadthBacktests } from '../lib/breadth-backtest-v29.mjs';
+import { listMegaBacktests, runMegaBacktests } from '../lib/mega-backtest-v30.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
@@ -202,7 +203,7 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ok: true,
         version: PROFILE_VERSION,
-        draftingProfile: 'predicate-verified-cross-domain-temporally-gated-role-aware-oral/written-cabinet-document',
+        draftingProfile: 'thousand-case-diplomacy-security-source-separated-temporally-gated-role-aware-oral/written-cabinet-document',
       });
     }
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
@@ -256,6 +257,21 @@ export default async function handler(req, res) {
         return json(res, 400, {
           error: 'Unknown breadth-test case',
           cases: listBreadthBacktests().map((testCase) => testCase.id),
+        });
+      }
+      return json(res, 200, report);
+    }
+
+    if (u.pathname.endsWith('/mega-test')) {
+      const caseId = clean(u.searchParams.get('case') || '');
+      if (caseId === 'list') {
+        return json(res, 200, { version: PROFILE_VERSION, cases: listMegaBacktests() });
+      }
+      const report = await runMegaBacktests(caseId);
+      if (!report) {
+        return json(res, 400, {
+          error: 'Unknown mega-test case',
+          cases: listMegaBacktests().map((testCase) => testCase.id),
         });
       }
       return json(res, 200, report);

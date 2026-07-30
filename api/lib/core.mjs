@@ -61,6 +61,20 @@ const sentences=t=>clean(t).split(/(?<=[。！？])/).map(clean).filter(s=>s.len
 export function subjectMatches(text,issue,title='',allowTitle=true){const t=clean(text),ttl=allowTitle?clean(title):'';if(!issue.required?.length)return false;return issue.required.every(group=>group.some(a=>t.includes(a)||ttl.includes(a)))}
 export function relevance(text,issue,title=''){const t=clean(text),ttl=clean(title);if(!t||BAD.test(t)||!subjectMatches(t,issue,ttl,true))return-1000;const anchors=issue.anchors.filter(a=>a.length>=2&&!GENERIC.test(a)),bodyHits=anchors.filter(a=>t.includes(a)),titleHits=anchors.filter(a=>ttl.includes(a));let score=bodyHits.reduce((n,a)=>n+Math.min(a.length,12)*12,0)+titleHits.reduce((n,a)=>n+Math.min(a.length,12)*18,0);score+=ANSWERISH.test(t)?28:0;score+=bodyHits.length>=2?28:0;score+=bodyHits.length>=3?20:0;const compact=issue.label.replace(/[\s　、。！？?]/g,'');if(compact.length>=4&&(t.replace(/\s/g,'').includes(compact)||ttl.replace(/\s/g,'').includes(compact)))score+=100;return score}
 export function bestPassage(text,issue,title=''){const ss=sentences(text),ranked=ss.filter(s=>subjectMatches(s,issue,'',false)).map((s,i)=>({s,i,v:relevance(s,issue,title)})).sort((a,b)=>b.v-a.v),best=ranked[0];if(!best||best.v<45)return'';const idx=ss.indexOf(best.s),next=ss[idx+1];return next&&subjectMatches(next,issue,'',false)&&relevance(next,issue,title)>=45&&best.s.length+next.length<650?best.s+next:best.s}
-export function sourceRank(source,mode,respondent){if(mode==='written')return source.sourceType==='written'?0:source.sourceType==='answer'?1:source.sourceType==='press'?2:source.sourceType==='interview'?3:4;if(source.sourceType==='answer'&&source.category===respondent)return 0;if(source.sourceType==='written')return 1;if(source.sourceType==='answer')return 2;if(source.sourceType==='press')return 3;if(source.sourceType==='interview')return 4;return 5}
+export function sourceRank(source,mode,respondent){
+if(mode==='written'){
+if(source.sourceType==='written')return 0;
+if(source.sourceType==='fact')return 1;
+if(source.sourceType==='press')return 2;
+if(source.sourceType==='interview')return 3;
+if(source.sourceType==='answer')return 4;
+return 5}
+if(source.sourceType==='answer'&&source.category===respondent)return 0;
+if(source.sourceType==='answer')return 1;
+if(source.sourceType==='press')return 2;
+if(source.sourceType==='interview')return 3;
+if(source.sourceType==='fact')return 4;
+if(source.sourceType==='written')return 9;
+return 10}
 export function acceptable(source,issue){if(!source||BAD.test(source.phrase||'')||!subjectMatches(source.phrase,issue,'',false))return false;return relevance(source.phrase,issue,source.title)>=45&&(ANSWERISH.test(source.phrase)||source.sourceType==='fact')}
 export const fallbackDraft=issue=>`${issue.label.length>80?'当該問題':issue.label}については、我が国の国益、国民の安全及び関係する法令・事実関係を踏まえ、政府として主体的かつ適切に判断し、必要な対応を行う。`;
