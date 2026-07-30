@@ -3,21 +3,25 @@ import { VERSION, toPlainStyle, categoryOfSpeech, bestPassage, relevance } from 
 const normalize = (s = '') => String(s).normalize('NFKC');
 
 export async function dietSearch(issue, respondent) {
-  const all = [];
-  for (const term of issue.queries.slice(0, 6)) {
+  const terms = [...new Set((issue.queries || []).slice(0, 6).map(normalize).filter(Boolean))];
+  const batches = await Promise.all(terms.map(async (term) => {
     try {
       const p = new URLSearchParams({
         maximumRecords: '80',
         recordPacking: 'json',
-        any: normalize(term),
+        any: term,
       });
       const r = await fetch(`https://kokkai.ndl.go.jp/api/speech?${p}`, {
         headers: { Accept: 'application/json', 'User-Agent': `ShuishoKokkai/${VERSION}` },
         signal: AbortSignal.timeout(7000),
       });
-      if (r.ok) all.push(...((await r.json()).speechRecord || []));
-    } catch {}
-  }
+      if (!r.ok) return [];
+      return (await r.json()).speechRecord || [];
+    } catch {
+      return [];
+    }
+  }));
+  const all = batches.flat();
 
   const seen = new Set();
   const out = [];
