@@ -1,6 +1,6 @@
 export const VERSION='15.2';
 export const SOURCE_LABEL={answer:'国会答弁',written:'質問主意書答弁書',press:'会見・演説',interview:'インタビュー・寄稿',fact:'政府公式資料'};
-export const CATEGORY_LABEL={prime:'総理',minister:'大臣',official:'政府参考人',cabinet:'閣議決定済み答弁書',official_policy:'政府公式資料'};
+export const CATEGORY_LABEL={prime:'総理',chief:'官房長官',minister:'大臣',official:'政府参考人',cabinet:'閣議決定済み答弁書',official_policy:'政府公式資料'};
 
 export const decodeHtml=(s='')=>String(s)
 .replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>')
@@ -56,7 +56,7 @@ const synonymsFor=w=>{const out=new Set([w]);for(const[k,v]of SYNONYMS)if(w.incl
 const expandWords=words=>[...new Set(words.flatMap(synonymsFor))];
 export const makeIssue=(label,concept=null)=>{const base=concept?concept.anchors:baseWords(label),anchors=concept?concept.anchors:expandWords(base).slice(0,12),required=concept?(CONCEPT_REQUIRED[concept.id]||[concept.anchors.slice(0,1)]):base.slice(0,2).map(synonymsFor),queries=concept?concept.queries:[anchors.slice(0,5).join(' '),clean(label),...anchors.slice(0,3)];return{label:clean(label),concept,anchors,required,queries:[...new Set(queries.filter(Boolean))]}};
 export function splitIssues(question){const q=clean(question),concepts=CONCEPTS.filter(c=>c.match.test(q));if(concepts.length)return concepts.map(c=>makeIssue(c.id,c));const numbered=q.split(/(?=(?:^|\s)(?:[一二三四五六七八九十]+|\d+)[　\s、．.])/).map(clean).filter(x=>x.length>=4);if(numbered.length>1)return numbered.map(x=>makeIssue(x.replace(/^(?:[一二三四五六七八九十]+|\d+)[　\s、．.]*/,'')));const lines=String(question).split(/\n+/).map(clean).filter(x=>x.length>=4);return lines.length>1?lines.map(x=>makeIssue(x)):[makeIssue(q)]}
-export function categoryOfSpeech(x){const p=clean(x.speakerPosition);if(/内閣総理大臣|総理大臣/.test(p))return'prime';if(/国務大臣|外務大臣|防衛大臣|財務大臣|官房長官|担当大臣|厚生労働大臣|文部科学大臣|経済産業大臣|国土交通大臣|環境大臣|農林水産大臣|法務大臣|総務大臣/.test(p))return'minister';if(/政府参考人|政府委員|局長|審議官|長官|部長|統括官/.test(p))return'official';return null}
+export function categoryOfSpeech(x){const p=clean(x.speakerPosition);if(/内閣総理大臣|総理大臣/.test(p))return'prime';if(/内閣官房長官|官房長官/.test(p))return'chief';if(/国務大臣|外務大臣|防衛大臣|財務大臣|担当大臣|厚生労働大臣|文部科学大臣|経済産業大臣|国土交通大臣|環境大臣|農林水産大臣|法務大臣|総務大臣/.test(p))return'minister';if(/政府参考人|政府委員|局長|審議官|長官|部長|統括官/.test(p))return'official';return null}
 const sentences=t=>clean(t).split(/(?<=[。！？])/).map(clean).filter(s=>s.length>=18&&s.length<=420);
 export function subjectMatches(text,issue,title='',allowTitle=true){const t=clean(text),ttl=allowTitle?clean(title):'';if(!issue.required?.length)return false;return issue.required.every(group=>group.some(a=>t.includes(a)||ttl.includes(a)))}
 export function relevance(text,issue,title=''){const t=clean(text),ttl=clean(title);if(!t||BAD.test(t)||!subjectMatches(t,issue,ttl,true))return-1000;const anchors=issue.anchors.filter(a=>a.length>=2&&!GENERIC.test(a)),bodyHits=anchors.filter(a=>t.includes(a)),titleHits=anchors.filter(a=>ttl.includes(a));let score=bodyHits.reduce((n,a)=>n+Math.min(a.length,12)*12,0)+titleHits.reduce((n,a)=>n+Math.min(a.length,12)*18,0);score+=ANSWERISH.test(t)?28:0;score+=bodyHits.length>=2?28:0;score+=bodyHits.length>=3?20:0;const compact=issue.label.replace(/[\s　、。！？?]/g,'');if(compact.length>=4&&(t.replace(/\s/g,'').includes(compact)||ttl.replace(/\s/g,'').includes(compact)))score+=100;return score}

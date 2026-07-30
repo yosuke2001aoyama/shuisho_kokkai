@@ -1,7 +1,6 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v25.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v26.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
-import { buildQuestionDraft } from '../lib/question.mjs';
 
 const json = (res, status, body) => {
   res.statusCode = status;
@@ -29,6 +28,7 @@ const SMOKE_CASES = {
   reason: '理由を求める質問に、聞かれていない具体策や将来方針を付加しない',
   multi: '複数の独立した主題を漏らさず、論点数以上に広げない',
   cohesion: '同じ法的・政策的主題に属する複数の聞き方を一論点にまとめ、白丸段落で答える',
+  accountability: '政治的な評価を問う質問には、結論だけで終わらず、判断基準と政府の行動まで示す',
   vagueWritten: '曖昧な質問主意書には拒否理由だけを記載し、一般政策を付加しない',
   outsideWritten: '政府の所掌外事項には把握する立場にない旨だけを記載する',
   hypotheticalWritten: '仮定・網羅要求には限定答弁だけを記載する',
@@ -103,6 +103,24 @@ async function runSmokeCase(name) {
       citesOfficialPrecedent: draft.references.some((reference) => /衆議院|閣議決定/u.test(reference.sourceName || '')),
     };
     return { name, passed: Object.values(checks).every(Boolean), checks, sample: draft };
+  }
+  if (name === 'accountability') {
+    const roles = ['prime', 'chief', 'minister', 'official'];
+    const samples = await Promise.all(roles.map((role) =>
+      build('speech', '日本は米国の言いなりなのではないか。', role)));
+    const checks = {
+      everyRoleSubstantive: samples.every((draft) => (draft.draft.match(/^○　/gmu) || []).length >= 3),
+      directAnswerFirst: samples.every((draft) => /御指摘は当たらない|米国の意向だけで決定されるものではない/u.test(draft.segments[1]?.text || '')),
+      explainsDecisionBasis: samples.every((draft) => /国益|国民の生命と財産/u.test(draft.draft)),
+      roleSpecific: /私として/u.test(samples[0].draft)
+        && /官房長官として/u.test(samples[1].draft)
+        && /所管/u.test(samples[2].draft)
+        && /制度及び政策決定の実務/u.test(samples[3].draft),
+      fourStageQualityGate: samples.every((draft) =>
+        Object.values(draft.draftingQuality || {}).every((gate) => gate.passed)),
+      noInternalGroupingNote: samples.every((draft) => !draft.questionAnalysis?.groupingNote),
+    };
+    return { name, passed: Object.values(checks).every(Boolean), checks, samples };
   }
   if (name === 'vagueWritten') {
     const draft = await build('written', '御指摘の「真に十分な少子化対策」とは何か。政府の評価基準を示されたい。', 'minister');
@@ -181,7 +199,7 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ok: true,
         version: PROFILE_VERSION,
-        draftingProfile: 'direct-answer-white-circle/oral-cohesion/written-cabinet-document/question-paper',
+        draftingProfile: 'role-aware-substantive-oral/written-cabinet-document',
       });
     }
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
@@ -212,7 +230,7 @@ export default async function handler(req, res) {
     if (u.pathname.endsWith('/search')) {
       const q = clean(u.searchParams.get('q'));
       if (!q) return json(res, 400, { error: '検索語を入力してください。' });
-      const respondent = ['prime', 'minister', 'official'].includes(u.searchParams.get('respondent'))
+      const respondent = ['prime', 'chief', 'minister', 'official'].includes(u.searchParams.get('respondent'))
         ? u.searchParams.get('respondent')
         : 'minister';
       const results = await searchAll(q, respondent);
@@ -232,15 +250,13 @@ export default async function handler(req, res) {
       for await (const c of req) raw += c;
       const body = raw ? JSON.parse(raw) : {};
       const question = clean(body.question);
-      const mode = ['speech', 'written', 'question'].includes(body.mode) ? body.mode : 'speech';
-      const respondent = ['prime', 'minister', 'official'].includes(body.respondent)
+      const mode = ['speech', 'written'].includes(body.mode) ? body.mode : 'speech';
+      const respondent = ['prime', 'chief', 'minister', 'official'].includes(body.respondent)
         ? body.respondent
         : 'minister';
       if (question.length < 8) return json(res, 400, { error: '質問を8文字以上で入力してください。' });
       return json(res, 200, {
-        ...(mode === 'question'
-          ? buildQuestionDraft(question)
-          : await build(mode, question, respondent)),
+        ...(await build(mode, question, respondent)),
         mode,
         generatedBy: `draft-engine-profile-${PROFILE_VERSION}`,
         disclaimer: '起案補助用。正式使用前に主管府省で最新の事実関係、政府方針、法令引用及び用例との整合性を確認すること。',

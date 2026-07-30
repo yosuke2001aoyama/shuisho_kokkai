@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
-import { build } from '../lib/profile-v25.mjs';
-import { buildQuestionDraft } from '../lib/question.mjs';
+import { build } from '../lib/profile-v26.mjs';
+import { categoryOfSpeech } from '../api/lib/core.mjs';
 import { getOfficialStyleGuide } from '../api/lib/official-style.mjs';
 
 const crisisQuestion = '麻生副総裁は、中国による台湾侵攻は存立危機事態である可能性が高いと発言しているが、総理はどう考えるのか。また、台湾海峡が海上封鎖された場合、存立危機事態になり得るのか。';
@@ -35,12 +36,42 @@ test('単一主題の長い答弁に論点見出しを付けない', async () =>
   assert.doesNotMatch(result.draft, /＜[^＞]+＞|●|論点[一二三四五六七八九十\d]|【[^】]+】/u);
 });
 
-test('質問主意書は入力した事項だけを番号項目にする', () => {
-  const result = buildQuestionDraft('生成AIと著作権保護の両立を問う。\n政府の具体的な対応を明らかにされたい。');
-  assert.equal(result.issueCount, 2);
-  assert.match(result.draft, /一　生成AIと著作権保護の両立を問う。/u);
-  assert.match(result.draft, /二　政府の具体的な対応を明らかにされたい。/u);
-  assert.match(result.draft, /右質問する。$/u);
+test('政治的評価への答弁は四つの職責ごとに結論・根拠・行動まで示す', async () => {
+  const roles = ['prime', 'chief', 'minister', 'official'];
+  const results = await Promise.all(roles.map((role) =>
+    build('speech', '日本は米国の言いなりなのではないか。', role)));
+  for (const result of results) {
+    assert.ok((result.draft.match(/^○　/gmu) || []).length >= 3);
+    assert.match(result.segments[1].text, /御指摘は当たらない|米国の意向だけで決定されるものではない/u);
+    assert.match(result.draft, /国益/u);
+    assert.match(result.draft, /国民の生命と財産/u);
+    assert.ok(Object.values(result.draftingQuality).every((gate) => gate.passed));
+    assert.equal(result.questionAnalysis.groupingNote, undefined);
+  }
+  assert.equal(new Set(results.map((result) => result.draft)).size, roles.length);
+  assert.match(results[0].draft, /私として/u);
+  assert.match(results[1].draft, /官房長官として/u);
+  assert.match(results[2].draft, /所管/u);
+  assert.match(results[3].draft, /制度及び政策決定の実務/u);
+});
+
+test('官房長官答弁を総理と大臣の間の独立区分として扱う', () => {
+  assert.equal(categoryOfSpeech({ speakerPosition: '内閣官房長官' }), 'chief');
+  const html = readFileSync(new URL('../public/index-v2.html', import.meta.url), 'utf8');
+  const prime = html.indexOf('data-value="prime"');
+  const chief = html.indexOf('data-value="chief"');
+  const minister = html.indexOf('data-value="minister"');
+  const official = html.indexOf('data-value="official"');
+  assert.ok(prime < chief && chief < minister && minister < official);
+});
+
+test('画面から利用者向けでない説明と質問主意書生成を除く', () => {
+  const html = readFileSync(new URL('../public/index-v2.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /DIRECT · TRACEABLE|質問に直接答える。|聞かれていない論点は増やさない。/u);
+  assert.doesNotMatch(html, /質問文の要求だけを抽出し/u);
+  assert.doesNotMatch(html, /独立した主題だけを分け/u);
+  assert.doesNotMatch(html, /value="question"|質問主意書原案を作成/u);
+  assert.doesNotMatch(html, /id="analysis"|id="groupingNote"/u);
 });
 
 test('質問主意書答弁書は公表済み方針に即して直接答える', async () => {

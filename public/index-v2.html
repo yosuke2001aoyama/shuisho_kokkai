@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="質問に直接答え、根拠と対応関係を確認できる国会答弁・質問主意書起案支援">
+  <meta name="description" content="国会答弁案と質問主意書答弁書の起案支援">
   <meta http-equiv="Cache-Control" content="no-store">
   <meta property="og:title" content="国会答弁・質問主意書 起案支援">
-  <meta property="og:description" content="質問にない論点を増やさず、国会公式資料を根拠に起案する。">
+  <meta property="og:description" content="国会答弁案と質問主意書答弁書の起案支援">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://shuisho-kokkai.vercel.app/">
   <meta property="og:image" content="https://shuisho-kokkai.vercel.app/og.png">
@@ -120,56 +120,6 @@
       margin: 0 auto;
       padding: 28px 24px 64px;
     }
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: end;
-      gap: 32px;
-      margin-bottom: 20px;
-      padding: 28px 32px;
-      background: var(--navy);
-      color: var(--white);
-      border-radius: 4px;
-      overflow: hidden;
-      position: relative;
-    }
-    .hero::after {
-      content: "○";
-      position: absolute;
-      right: 24px;
-      top: -70px;
-      color: rgba(255, 255, 255, .055);
-      font-family: serif;
-      font-size: 260px;
-      line-height: 1;
-      pointer-events: none;
-    }
-    .hero p {
-      margin: 0 0 8px;
-      color: #ccd6e4;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: .12em;
-    }
-    .hero h1 {
-      max-width: 820px;
-      margin: 0;
-      font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
-      font-size: clamp(24px, 3vw, 38px);
-      line-height: 1.45;
-      font-weight: 600;
-    }
-    .hero h1 span { color: #ffccd2; }
-    .hero-note {
-      position: relative;
-      z-index: 1;
-      max-width: 360px;
-      padding: 14px 16px;
-      background: rgba(255, 255, 255, .08);
-      border-left: 2px solid #e76170;
-      color: #dce5ef;
-      font-size: 13px;
-    }
     .workspace {
       display: grid;
       grid-template-columns: minmax(350px, .78fr) minmax(0, 1.22fr);
@@ -213,12 +163,6 @@
       font-size: 13px;
       font-weight: 800;
     }
-    .hint {
-      display: block;
-      margin: -3px 0 8px;
-      color: var(--muted);
-      font-size: 12px;
-    }
     input, textarea, select {
       width: 100%;
       border: 1px solid var(--line-dark);
@@ -240,7 +184,7 @@
     }
     .respondent-tabs {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 6px;
     }
     .respondent-tabs button, .example-btn {
@@ -318,26 +262,6 @@
       line-height: 1;
     }
     .empty strong { display: block; margin: 12px 0 4px; color: var(--navy); }
-    .analysis {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      border-bottom: 1px solid var(--line);
-      background: var(--soft-blue);
-    }
-    .metric {
-      padding: 13px 16px;
-      border-right: 1px solid var(--line);
-    }
-    .metric:last-child { border-right: 0; }
-    .metric span { display: block; color: var(--muted); font-size: 10px; letter-spacing: .08em; }
-    .metric strong { color: var(--navy); font-family: "Yu Mincho", serif; font-size: 22px; font-weight: 600; }
-    .grouping-note {
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--line);
-      color: #40516a;
-      font-size: 12px;
-      background: #f8fafc;
-    }
     .document {
       margin: 0;
       min-height: 420px;
@@ -477,8 +401,6 @@
       .tabs { width: 100%; }
       .tabs button { flex: 1; }
       .shell { padding: 18px 14px 48px; }
-      .hero { grid-template-columns: 1fr; padding: 24px; }
-      .hero-note { max-width: none; }
       .workspace { grid-template-columns: 1fr; }
       .output-panel { min-height: 560px; }
       .results, .usage-grid { grid-template-columns: 1fr; }
@@ -488,14 +410,9 @@
       .brand strong { font-size: 16px; }
       .tabs { overflow-x: auto; }
       .tabs button { min-width: 92px; padding-inline: 9px; white-space: nowrap; }
-      .hero { padding: 20px; }
-      .hero h1 { font-size: 24px; }
       .panel-head, .panel-body, .references { padding: 17px; }
       textarea { min-height: 250px; }
-      .respondent-tabs { grid-template-columns: 1fr; }
-      .analysis { grid-template-columns: 1fr 1fr 1fr; }
-      .metric { padding: 10px; }
-      .metric strong { font-size: 18px; }
+      .respondent-tabs { grid-template-columns: 1fr 1fr; }
       .document { padding: 24px 18px; font-size: 16px; }
       .search-row { grid-template-columns: 1fr; }
       .search-row button { min-height: 44px; }
@@ -521,14 +438,6 @@
 
   <main id="main" class="shell">
     <section id="draftView" class="view">
-      <div class="hero">
-        <div>
-          <p>DIRECT · TRACEABLE · QUESTION-BOUND</p>
-          <h1>質問に直接答える。<br><span>聞かれていない論点は増やさない。</span></h1>
-        </div>
-        <div class="hero-note">同一論点の答弁が長い場合は「論点一・二」と分けず、実際の提出資料にならった白丸「○」の段落で整理する。</div>
-      </div>
-
       <div class="workspace">
         <section class="panel input-panel" aria-labelledby="inputTitle">
           <div class="panel-head">
@@ -542,8 +451,7 @@
               <label for="mode">作成する文書</label>
               <select id="mode">
                 <option value="speech">国会答弁案（口頭）</option>
-                <option value="written">質問主意書の答弁書</option>
-                <option value="question">質問主意書</option>
+                <option value="written">質問主意書答弁書</option>
               </select>
             </div>
 
@@ -551,14 +459,14 @@
               <span class="legend">答弁者</span>
               <div class="respondent-tabs" role="group" aria-label="答弁者">
                 <button type="button" data-value="prime">総理</button>
+                <button type="button" data-value="chief">官房長官</button>
                 <button type="button" data-value="minister" class="on">大臣</button>
-                <button type="button" data-value="official">政府参考人</button>
+                <button type="button" data-value="official">政府参考人（局長等）</button>
               </div>
             </div>
 
             <div class="field">
               <label id="questionLabel" for="question">質問（通告・想定問）</label>
-              <span id="questionHint" class="hint">質問文の要求だけを抽出し、国会公式資料を検索して答弁案を組み立てる。</span>
               <textarea id="question" rows="15" placeholder="質問を入力してください。"></textarea>
               <div class="examples" aria-label="入力例">
                 <button type="button" class="example-btn" data-example="crisis">存立危機事態の例</button>
@@ -586,12 +494,9 @@
             <div>
               <span class="empty-mark" aria-hidden="true">○</span>
               <strong>質問と作成条件を入力してください</strong>
-              <span>質問要求、独立論点、白丸段落の対応も表示します。</span>
             </div>
           </div>
           <div id="draftResult" class="hidden">
-            <div id="analysis" class="analysis"></div>
-            <div id="groupingNote" class="grouping-note"></div>
             <pre id="draftOutput" class="document" aria-live="polite"></pre>
             <div id="review" class="review hidden"></div>
             <div id="references" class="references hidden"></div>
@@ -673,6 +578,7 @@
 
     const categoryLabels = {
       prime: '総理',
+      chief: '官房長官',
       minister: '大臣',
       official: '政府参考人',
       cabinet: '閣議決定済み答弁書',
@@ -695,26 +601,12 @@
     function syncMode() {
       const mode = $('#mode').value;
       const written = mode === 'written';
-      const questionMode = mode === 'question';
       $('#respondentField').classList.toggle('hidden', mode !== 'speech');
-      $('#questionLabel').textContent = written
-        ? '質問主意書本文'
-        : questionMode
-          ? '問題意識・確認したい事項'
-          : '質問（通告・想定問）';
-      $('#questionHint').textContent = written
-        ? '質問番号との対応を保ち、閣議決定文書の用字・用例で答弁書原案を作成する。'
-        : questionMode
-          ? '一行に一事項を入力すると、背景、番号項目、結語を備えた質問主意書に整える。'
-          : '質問文の要求だけを抽出し、国会公式資料を検索して答弁案を組み立てる。';
-      $('#question').placeholder = questionMode
-        ? '例：生成AIと著作権保護の両立について政府の認識を確認したい。\\n学習段階と生成・利用段階の考え方を明らかにされたい。'
-        : '質問を入力してください。';
+      $('#questionLabel').textContent = written ? '質問主意書本文' : '質問（通告・想定問）';
+      $('#question').placeholder = '質問を入力してください。';
       $('#draftBtn').textContent = written
         ? '根拠付き答弁書原案を作成'
-        : questionMode
-          ? '質問主意書原案を作成'
-          : '根拠付き答弁案を作成';
+        : '根拠付き答弁案を作成';
     }
 
     function referenceCard(item, id = '') {
@@ -733,7 +625,6 @@
     }
 
     function renderDraft(data) {
-      const analysis = data.questionAnalysis || {};
       const references = data.references || [];
       const notes = data.reviewNotes || [];
       lastDraft = data.draft || (data.segments || []).map((segment) => segment.text).join('');
@@ -741,11 +632,6 @@
       $('#emptyState').classList.add('hidden');
       $('#draftResult').classList.remove('hidden');
       $('#copyBtn').classList.remove('hidden');
-      $('#analysis').innerHTML = `
-        <div class="metric"><span>質問要求</span><strong>${esc(analysis.askedUnits || 1)}</strong></div>
-        <div class="metric"><span>独立論点</span><strong>${esc(analysis.logicalIssues || data.issueCount || 1)}</strong></div>
-        <div class="metric"><span>${data.mode === 'question' ? '質問項目' : '○ 段落'}</span><strong>${esc(analysis.answerParagraphs || 1)}</strong></div>`;
-      $('#groupingNote').textContent = analysis.groupingNote || '質問との対応関係を確認した。';
       $('#draftOutput').innerHTML = (data.segments || []).map((segment) => {
         const text = esc(segment.text);
         return segment.referenceKey
@@ -754,7 +640,7 @@
       }).join('');
       $('#review').classList.toggle('hidden', !notes.length);
       $('#review').innerHTML = notes.length
-        ? `<strong>確認事項</strong><ul>${notes.map((note) => `<li>${esc(note)}</li>`).join('')}</ul>`
+        ? `<strong>提出前確認</strong><ul>${notes.map((note) => `<li>${esc(note)}</li>`).join('')}</ul>`
         : '';
       $('#references').classList.toggle('hidden', !references.length);
       $('#references').innerHTML = references.length
@@ -782,9 +668,7 @@
       }
       const button = $('#draftBtn');
       button.disabled = true;
-      button.textContent = $('#mode').value === 'question'
-        ? '質問項目を整理中…'
-        : '質問分析・一次資料検索・起案中…';
+      button.textContent = '質問分析・一次資料検索・起案中…';
       $('#emptyState').classList.add('hidden');
       $('#draftResult').classList.add('hidden');
       $('#copyBtn').classList.add('hidden');
@@ -800,8 +684,6 @@
         renderDraft(data);
       } catch (error) {
         $('#draftResult').classList.remove('hidden');
-        $('#analysis').innerHTML = '';
-        $('#groupingNote').textContent = '';
         $('#draftOutput').innerHTML = `<div class="error">${esc(error.message)}</div>`;
         $('#review').classList.add('hidden');
         $('#references').classList.add('hidden');

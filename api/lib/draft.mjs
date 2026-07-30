@@ -295,7 +295,7 @@ export async function build(mode, question, respondent) {
       sourceTypeLabel: SOURCE_LABEL[x.sourceType] || x.sourceType,
       borrowed:
         mode !== 'written' &&
-        ['prime', 'minister', 'official'].includes(x.category) &&
+        ['prime', 'chief', 'minister', 'official'].includes(x.category) &&
         x.category !== respondent,
     }));
   const key = new Map(unique.map((x) => [x.id, x.referenceKey]));
