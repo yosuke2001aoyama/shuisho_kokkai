@@ -1,6 +1,7 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v23.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v25.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
+import { buildQuestionDraft } from './lib/question.mjs';
 
 const json = (res, status, body) => {
   res.statusCode = status;
@@ -26,7 +27,8 @@ const SMOKE_CASES = {
   simple: '単純な事実質問に、聞かれていない認識・理由・具体策・将来方針を付加しない',
   policy: '認識・具体策・今後の方針を求める質問には、その三要素だけを答える',
   reason: '理由を求める質問に、聞かれていない具体策や将来方針を付加しない',
-  multi: '複数の明示的な論点を漏らさず、論点数以上に広げない',
+  multi: '複数の独立した主題を漏らさず、論点数以上に広げない',
+  cohesion: '同じ法的・政策的主題に属する複数の聞き方を一論点にまとめ、白丸段落で答える',
   vagueWritten: '曖昧な質問主意書には拒否理由だけを記載し、一般政策を付加しない',
   outsideWritten: '政府の所掌外事項には把握する立場にない旨だけを記載する',
   hypotheticalWritten: '仮定・網羅要求には限定答弁だけを記載する',
@@ -37,8 +39,8 @@ async function runSmokeCase(name) {
     const draft = await build('speech', '尖閣諸島は我が国固有の領土か。', 'minister');
     const checks = {
       onlyConclusion: sameKinds(draft, ['conclusion']),
-      hasConclusion: /【結論】/.test(draft.draft),
-      noUnaskedSections: !/【政府の認識】|【理由・根拠】|【具体的な対応】|【今後の方針】/.test(draft.draft),
+      hasAnswerParagraph: /^○　/mu.test(draft.draft),
+      noSyntheticHeadings: !/論点[一二三四五六七八九十\d]|【[^】]+】/u.test(draft.draft),
       noDebateFragments: !/お尋ねの|御指摘|委員|議員|昨日は|私も|連合さん|まあ|おっしゃ|通告|時間の関係/.test(draft.draft),
     };
     return { name, passed: Object.values(checks).every(Boolean), checks, sample: draft };
@@ -49,11 +51,8 @@ async function runSmokeCase(name) {
     const bodyTexts = draft.segments.filter((segment) => segment.responseType).map((segment) => segment.text.replace(/^.*?\n　/us, '').trim());
     const checks = {
       onlyRequestedKinds: sameKinds(draft, ['conclusion', 'recognition', 'measures', 'future']),
-      requestedSectionsPresent:
-        /【政府の認識】/.test(draft.draft) &&
-        /【具体的な対応】/.test(draft.draft) &&
-        /【今後の方針】/.test(draft.draft),
-      noUnaskedReason: !/【理由・根拠】/.test(draft.draft),
+      requestedParagraphsPresent: (draft.draft.match(/^○　/gmu) || []).length >= 3,
+      noSyntheticHeadings: !/論点[一二三四五六七八九十\d]|【[^】]+】/u.test(draft.draft),
       noDebateFragments: !/お尋ねの|御指摘|委員|議員|昨日は|私も|連合さん|まあ|おっしゃ|通告|時間の関係/.test(draft.draft),
       broadQuestionNotSectorOnly: !/医療機関|医療・介護|診療報酬|歯科|B型事業所|障害福祉/.test(draft.draft),
       noStandaloneDiscourseFragments: !/(?:^|\n　)(?:ですから|また|その上で|こうした中|ということを考えて)[、，]/mu.test(draft.draft),
@@ -68,8 +67,8 @@ async function runSmokeCase(name) {
     const checks = {
       singleCoherentIssue: draft.issueCount === 1,
       onlyConclusionAndReason: sameKinds(draft, ['conclusion', 'reason']),
-      reasonPresent: /【理由・根拠】/.test(draft.draft),
-      noUnaskedMeasuresOrFuture: !/【具体的な対応】|【今後の方針】/.test(draft.draft),
+      answerParagraphsPresent: (draft.draft.match(/^○　/gmu) || []).length >= 1,
+      noSyntheticHeadings: !/論点[一二三四五六七八九十\d]|【[^】]+】/u.test(draft.draft),
       noDebateFragments: !/お尋ねの|御指摘|委員|議員|昨日は|私も|連合さん|まあ|おっしゃ|通告|時間の関係/.test(draft.draft),
       substantiveReason: /購買力|個人消費|成長と分配|物価上昇/.test(draft.draft),
       noOffTopicSources: !/再審|即時抗告|伝聞証拠|刑事訴訟|予定価格|総合評価落札|予算の編成/.test(draft.draft),
@@ -80,11 +79,28 @@ async function runSmokeCase(name) {
     const draft = await build('speech', '物価高への対応を問う。また、中小企業への支援策を示されたい。', 'minister');
     const checks = {
       allIssuesCovered: draft.coverageSummary.missing === 0,
-      oneBlockPerIssue: (draft.draft.match(/^● 論点/gmu) || []).length === draft.issueCount,
+      independentIssueCount: draft.issueCount === 2,
+      usesWhiteCircles: (draft.draft.match(/^○　/gmu) || []).length >= draft.issueCount,
+      noSyntheticHeadings: !/論点[一二三四五六七八九十\d]|●/u.test(draft.draft),
       onlyMeasuresAndConclusions: sameKinds(draft, ['conclusion', 'measures']),
-      noUnaskedRecognitionReasonFuture: !/【政府の認識】|【理由・根拠】|【今後の方針】/.test(draft.draft),
       smallBusinessAnswerSubstantive: /価格転嫁|生産性向上|資金繰り|人材確保|事業承継/.test(draft.draft),
       noOffTopicOrPageChrome: !/イン・ローマ|日本らしい生活|外務省だけ|トップ\s*>|&emsp;|会議等一覧/.test(`${draft.draft} ${draft.references.map((x) => x.phrase).join(' ')}`),
+    };
+    return { name, passed: Object.values(checks).every(Boolean), checks, sample: draft };
+  }
+  if (name === 'cohesion') {
+    const draft = await build(
+      'speech',
+      '麻生副総裁は、中国による台湾侵攻は存立危機事態である可能性が高いと発言しているが、総理はどう考えるのか。また、台湾海峡が海上封鎖された場合、存立危機事態になり得るのか。',
+      'prime',
+    );
+    const checks = {
+      oneLogicalIssue: draft.issueCount === 1,
+      twoAskedUnits: draft.questionAnalysis?.askedUnits === 2,
+      whiteCircleParagraphs: (draft.draft.match(/^○　/gmu) || []).length >= 3,
+      noBlackCircleOrIssueHeading: !/●|論点[一二三四五六七八九十\d]/u.test(draft.draft),
+      answersLegalStandard: /個別具体的な状況|全ての情報を総合/u.test(draft.draft),
+      citesOfficialPrecedent: draft.references.some((reference) => /衆議院|閣議決定/u.test(reference.sourceName || '')),
     };
     return { name, passed: Object.values(checks).every(Boolean), checks, sample: draft };
   }
@@ -165,7 +181,7 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ok: true,
         version: PROFILE_VERSION,
-        draftingProfile: 'oral-explicit-dimensions/written-question-bound-cabinet-document',
+        draftingProfile: 'direct-answer-white-circle/oral-cohesion/written-cabinet-document/question-paper',
       });
     }
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
@@ -216,13 +232,15 @@ export default async function handler(req, res) {
       for await (const c of req) raw += c;
       const body = raw ? JSON.parse(raw) : {};
       const question = clean(body.question);
-      const mode = body.mode === 'written' ? 'written' : 'speech';
+      const mode = ['speech', 'written', 'question'].includes(body.mode) ? body.mode : 'speech';
       const respondent = ['prime', 'minister', 'official'].includes(body.respondent)
         ? body.respondent
         : 'minister';
       if (question.length < 8) return json(res, 400, { error: '質問を8文字以上で入力してください。' });
       return json(res, 200, {
-        ...(await build(mode, question, respondent)),
+        ...(mode === 'question'
+          ? buildQuestionDraft(question)
+          : await build(mode, question, respondent)),
         mode,
         generatedBy: `draft-engine-profile-${PROFILE_VERSION}`,
         disclaimer: '起案補助用。正式使用前に主管府省で最新の事実関係、政府方針、法令引用及び用例との整合性を確認すること。',

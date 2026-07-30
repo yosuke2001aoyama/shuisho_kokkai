@@ -1,1 +1,911 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Cache-Control" content="no-store"><title>国会答弁・質問主意書</title><style>:root{--navy:#14233d;--red:#bd3443;--line:#d8dee7;--muted:#6c7685;--bg:#f3f5f8;--mark:#fff0a6;--borrow:#dcecff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#172033;font-family:-apple-system,BlinkMacSystemFont,"Yu Gothic",sans-serif}.top{background:#fff;border-bottom:1px solid var(--line);padding:14px 4vw;display:flex;justify-content:space-between;align-items:center}.top h1{margin:0;font-family:"Yu Mincho",serif;font-size:22px}.tabs,.respondent-tabs{display:flex;gap:6px}.tabs button,.respondent-tabs button{border:1px solid #b9c3d1;background:#fff;color:var(--navy);padding:9px 14px;font-weight:700;cursor:pointer}.tabs button.on,.respondent-tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy)}main{max-width:1280px;margin:22px auto 50px;padding:0 20px}.panel{background:#fff;border:1px solid var(--line);padding:24px}.hidden{display:none!important}.grid{display:grid;grid-template-columns:minmax(330px,.8fr) minmax(0,1.2fr);gap:18px}.field{display:grid;gap:7px;margin-bottom:14px}label{font-weight:700}input,textarea,select{width:100%;border:1px solid #c7d0dd;padding:13px;font:inherit;background:#fff}.primary,.row button{border:0;background:var(--red);color:#fff;font-weight:800;cursor:pointer}.primary{width:100%;min-height:50px}.output{font-family:"Yu Mincho",serif;line-height:2.05;font-size:17px;min-height:260px}.segment{white-space:pre-wrap}.source-link{background:var(--mark);border-bottom:1px dotted #8a6c00;color:inherit;text-decoration:none;padding:1px 2px}.source-link.borrowed{background:repeating-linear-gradient(135deg,var(--borrow),var(--borrow) 8px,#eef6ff 8px,#eef6ff 16px)}.draft-note{margin-top:24px;border-top:1px solid var(--line);padding-top:9px;font-size:10px;line-height:1.55;color:#77808d}.refs{border-top:2px solid var(--line);margin-top:26px;padding-top:18px}.refs h3{font-family:"Yu Mincho",serif;margin:0 0 12px}.card{border:1px solid var(--line);padding:15px;margin:10px 0;background:#fff;scroll-margin-top:16px}.card.flash{outline:3px solid #efc84a}.card h4{margin:0 0 7px;font-family:"Yu Mincho",serif}.meta,.badge,.source-type{font-size:12px;color:var(--muted)}.badge,.source-type{display:inline-block;border:1px solid var(--line);padding:3px 7px;margin:0 6px 8px 0;background:#f8fafc}.badge.borrowed{background:#eef6ff}.phrase{font-family:"Yu Mincho",serif;background:#f8fafc;border-left:3px solid var(--navy);padding:10px 12px;margin:9px 0;line-height:1.7}.card a{font-size:12px;color:#1d4f91;font-weight:700}.row{display:grid;grid-template-columns:1fr auto;gap:8px}.row button{padding:0 22px}.results{display:grid;gap:10px;margin-top:14px}.status{margin-top:12px;font-size:12px;color:var(--muted)}.error{border:1px solid #e3b9bd;background:#fff5f6;padding:12px;color:#8b2631;font-size:13px}.evidence-summary{font-size:12px;color:#506074;margin-bottom:12px}@media(max-width:850px){.top{align-items:flex-start;gap:12px;flex-direction:column}.grid,.row{grid-template-columns:1fr}.tabs,.respondent-tabs{width:100%}.tabs button,.respondent-tabs button{flex:1}.output{font-size:16px}}</style></head><body><header class="top"><h1>国会答弁・質問主意書</h1><div class="tabs"><button id="tabSearch" class="on">資料検索</button><button id="tabDraft">原案作成</button></div></header><main><section id="searchView" class="panel"><div class="row"><input id="q" placeholder="検索語"><button id="searchBtn">検索</button></div><div id="searchStatus" class="status"></div><div id="results" class="results"></div></section><section id="draftView" class="hidden"><div class="grid"><div class="panel"><div class="field"><label>形式</label><select id="mode"><option value="speech">国会答弁</option><option value="written">質問主意書答弁書</option></select></div><div class="field" id="respondentField"><label>答弁者</label><div class="respondent-tabs"><button type="button" data-value="prime">総理</button><button type="button" data-value="minister" class="on">大臣</button><button type="button" data-value="official">政府参考人</button></div></div><div class="field"><label>質問</label><textarea id="question" rows="18"></textarea></div><button id="draftBtn" class="primary">根拠付き原案を作成</button></div><div class="panel"><h2 id="draftTitle">原案</h2><div id="draftOutput" class="output"></div><div id="references" class="refs hidden"></div><aside id="disclaimer" class="draft-note hidden"></aside></div></div></section></main><script>const $=s=>document.querySelector(s),esc=s=>String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));let respondent='minister';function syncMode(){const written=$('#mode').value==='written';$('#respondentField').classList.toggle('hidden',written);$('#draftBtn').textContent=written?'根拠付き答弁書原案を作成':'根拠付き答弁原案を作成'}function show(d){$('#draftView').classList.toggle('hidden',!d);$('#searchView').classList.toggle('hidden',d);$('#tabDraft').classList.toggle('on',d);$('#tabSearch').classList.toggle('on',!d)}$('#tabSearch').onclick=()=>show(false);$('#tabDraft').onclick=()=>{show(true);syncMode()};$('#mode').onchange=syncMode;document.querySelectorAll('.respondent-tabs button').forEach(b=>b.onclick=()=>{respondent=b.dataset.value;document.querySelectorAll('.respondent-tabs button').forEach(x=>x.classList.toggle('on',x===b))});function card(x,id=''){return `<article class="card" ${id?`id="${id}"`:''}><span class="source-type">${esc(x.sourceTypeLabel||x.sourceType||'資料')}</span>${x.categoryLabel?`<span class="badge ${x.borrowed?'borrowed':''}">${esc(x.categoryLabel)}${x.borrowed?'（別カテゴリー）':''}</span>`:''}<h4>${esc(x.title||'参考資料')}</h4><div class="meta">${esc(x.date||'')} ${esc(x.speaker||'')} ${esc(x.speakerPosition||'')}｜${esc(x.sourceName||'')}</div>${x.quotedPhrase?`<div class="phrase">${esc(x.quotedPhrase)}</div>`:''}<p><a href="${esc(x.url||'#')}" target="_blank" rel="noopener">公式原文を開く ↗</a></p></article>`}function renderDraft(d){const refs=d.references||[];$('#draftTitle').textContent=d.title||'原案';$('#draftOutput').innerHTML=(d.segments||[]).map(s=>{const body=esc(s.text);return s.referenceKey?`<a class="segment source-link ${s.borrowed?'borrowed':''}" href="#ref-${s.referenceKey}" data-ref="${s.referenceKey}">${body}</a>`:`<span class="segment">${body}</span>`}).join('');$('#references').classList.toggle('hidden',!refs.length);$('#references').innerHTML=refs.length?`<h3>${esc(d.referenceLabel||'根拠')}</h3><div class="evidence-summary">使用した一次資料 ${refs.length}件</div>`+refs.map(x=>card(x,'ref-'+x.referenceKey)).join(''):'';$('#disclaimer').textContent=d.disclaimer||'';$('#disclaimer').classList.toggle('hidden',!d.disclaimer);document.querySelectorAll('.source-link').forEach(a=>a.onclick=e=>{e.preventDefault();const el=document.getElementById('ref-'+a.dataset.ref);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1500)}})}$('#draftBtn').onclick=async()=>{const question=$('#question').value.trim();if(question.length<8)return alert('質問を8文字以上で入力してください。');$('#draftBtn').disabled=true;$('#draftOutput').textContent='論点分析・一次資料検索・起案中…';$('#references').classList.add('hidden');try{const r=await fetch('/api/draft',{method:'POST',headers:{'content-type':'application/json'},cache:'no-store',body:JSON.stringify({mode:$('#mode').value,respondent,question})}),d=await r.json();if(!r.ok)throw new Error(d.error);renderDraft(d)}catch(e){$('#draftOutput').innerHTML='<div class="error">'+esc(e.message)+'</div>'}finally{$('#draftBtn').disabled=false;syncMode()}};$('#searchBtn').onclick=async()=>{const q=$('#q').value.trim();if(!q)return;$('#searchStatus').textContent='検索中…';const r=await fetch('/api/search?q='+encodeURIComponent(q)+'&respondent='+encodeURIComponent(respondent),{cache:'no-store'}),d=await r.json();$('#searchStatus').textContent=r.ok?`${d.results.length}件。${d.coverage?.note||''}`:d.error;const cl={prime:'総理',minister:'大臣',official:'政府参考人',cabinet:'閣議決定済み答弁書',official_policy:'政府公式資料',interview:'インタビュー・寄稿'},sl={answer:'国会答弁',written:'質問主意書答弁書',press:'会見・演説',interview:'インタビュー・寄稿',fact:'政府公式資料'};$('#results').innerHTML=(d.results||[]).map(x=>card({...x,quotedPhrase:x.excerpt||x.phrase,categoryLabel:cl[x.category]||x.category,sourceTypeLabel:sl[x.sourceType]||x.sourceType})).join('')};syncMode();</script></body></html>
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="質問に直接答え、根拠と対応関係を確認できる国会答弁・質問主意書起案支援">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <meta property="og:title" content="国会答弁・質問主意書 起案支援">
+  <meta property="og:description" content="質問にない論点を増やさず、国会公式資料を根拠に起案する。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shuisho-kokkai.vercel.app/">
+  <meta property="og:image" content="https://shuisho-kokkai.vercel.app/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>国会答弁・質問主意書 起案支援</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --navy: #13233f;
+      --navy-2: #203858;
+      --red: #a52b39;
+      --red-dark: #84222e;
+      --paper: #fffefa;
+      --white: #ffffff;
+      --bg: #eef1f5;
+      --line: #d4dae3;
+      --line-dark: #aeb8c7;
+      --muted: #647084;
+      --soft-blue: #edf3f9;
+      --soft-red: #fbf0f1;
+      --soft-yellow: #fff7d8;
+      --evidence: #fff1a8;
+      --shadow: 0 10px 30px rgba(25, 40, 63, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+      line-height: 1.65;
+    }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    a { color: #174c85; }
+    .skip {
+      position: absolute;
+      left: -9999px;
+      top: 8px;
+      background: var(--white);
+      color: var(--navy);
+      padding: 8px 12px;
+      z-index: 20;
+    }
+    .skip:focus { left: 8px; }
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 72px;
+      padding: 12px max(24px, calc((100vw - 1420px) / 2));
+      background: rgba(255, 255, 255, .96);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 250px;
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      background: var(--navy);
+      color: var(--white);
+      font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+      font-weight: 700;
+      border-radius: 2px;
+    }
+    .brand strong {
+      display: block;
+      font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+    .brand small { color: var(--muted); font-size: 11px; letter-spacing: .08em; }
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+    .tabs button {
+      min-height: 38px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 7px 14px;
+      font-weight: 700;
+      border-radius: 2px;
+    }
+    .tabs button.on {
+      background: var(--white);
+      color: var(--navy);
+      box-shadow: 0 1px 4px rgba(20, 34, 57, .12);
+    }
+    .shell {
+      max-width: 1420px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 32px;
+      margin-bottom: 20px;
+      padding: 28px 32px;
+      background: var(--navy);
+      color: var(--white);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero::after {
+      content: "○";
+      position: absolute;
+      right: 24px;
+      top: -70px;
+      color: rgba(255, 255, 255, .055);
+      font-family: serif;
+      font-size: 260px;
+      line-height: 1;
+      pointer-events: none;
+    }
+    .hero p {
+      margin: 0 0 8px;
+      color: #ccd6e4;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .12em;
+    }
+    .hero h1 {
+      max-width: 820px;
+      margin: 0;
+      font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+      font-size: clamp(24px, 3vw, 38px);
+      line-height: 1.45;
+      font-weight: 600;
+    }
+    .hero h1 span { color: #ffccd2; }
+    .hero-note {
+      position: relative;
+      z-index: 1;
+      max-width: 360px;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, .08);
+      border-left: 2px solid #e76170;
+      color: #dce5ef;
+      font-size: 13px;
+    }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(350px, .78fr) minmax(0, 1.22fr);
+      gap: 20px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      box-shadow: var(--shadow);
+    }
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--red);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .13em;
+    }
+    .panel h2, .panel h3 { margin: 0; color: var(--navy); }
+    .panel h2 {
+      font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .panel-body { padding: 22px; }
+    .field { margin-bottom: 18px; }
+    .field label, .legend {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--navy);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .hint {
+      display: block;
+      margin: -3px 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line-dark);
+      background: var(--paper);
+      color: var(--ink);
+      border-radius: 2px;
+      outline: none;
+    }
+    input, select { min-height: 46px; padding: 10px 12px; }
+    textarea {
+      min-height: 300px;
+      padding: 14px;
+      resize: vertical;
+      line-height: 1.75;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--navy-2);
+      box-shadow: 0 0 0 3px rgba(32, 56, 88, .12);
+    }
+    .respondent-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .respondent-tabs button, .example-btn {
+      min-height: 42px;
+      border: 1px solid var(--line-dark);
+      background: var(--white);
+      color: var(--navy);
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 2px;
+    }
+    .respondent-tabs button.on {
+      border-color: var(--navy);
+      background: var(--navy);
+      color: var(--white);
+    }
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 9px;
+    }
+    .example-btn {
+      min-height: 34px;
+      padding: 5px 9px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .example-btn:hover { border-color: var(--navy); color: var(--navy); }
+    .primary {
+      width: 100%;
+      min-height: 54px;
+      border: 0;
+      background: var(--red);
+      color: var(--white);
+      padding: 13px 18px;
+      border-radius: 2px;
+      font-weight: 800;
+      letter-spacing: .03em;
+      box-shadow: 0 4px 0 var(--red-dark);
+    }
+    .primary:hover { background: #b52f3f; }
+    .primary:disabled { opacity: .55; cursor: wait; box-shadow: none; }
+    .shortcut {
+      margin: 10px 0 0;
+      color: var(--muted);
+      text-align: center;
+      font-size: 11px;
+    }
+    .output-panel { min-height: 680px; }
+    .output-tools { display: flex; gap: 6px; }
+    .secondary {
+      min-height: 38px;
+      border: 1px solid var(--line-dark);
+      background: var(--white);
+      color: var(--navy);
+      padding: 7px 12px;
+      border-radius: 2px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .empty {
+      display: grid;
+      place-items: center;
+      min-height: 530px;
+      padding: 40px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty-mark {
+      display: block;
+      color: #bac3cf;
+      font-family: "Yu Mincho", serif;
+      font-size: 64px;
+      line-height: 1;
+    }
+    .empty strong { display: block; margin: 12px 0 4px; color: var(--navy); }
+    .analysis {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border-bottom: 1px solid var(--line);
+      background: var(--soft-blue);
+    }
+    .metric {
+      padding: 13px 16px;
+      border-right: 1px solid var(--line);
+    }
+    .metric:last-child { border-right: 0; }
+    .metric span { display: block; color: var(--muted); font-size: 10px; letter-spacing: .08em; }
+    .metric strong { color: var(--navy); font-family: "Yu Mincho", serif; font-size: 22px; font-weight: 600; }
+    .grouping-note {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      color: #40516a;
+      font-size: 12px;
+      background: #f8fafc;
+    }
+    .document {
+      margin: 0;
+      min-height: 420px;
+      padding: 30px clamp(22px, 4vw, 52px);
+      background: var(--paper);
+      color: #111823;
+      font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+      font-size: 17px;
+      line-height: 2.05;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .source-link {
+      color: inherit;
+      text-decoration: none;
+      background: linear-gradient(transparent 55%, var(--evidence) 55%);
+      border-bottom: 1px dotted #917624;
+    }
+    .review {
+      margin: 0;
+      padding: 16px 22px;
+      border-top: 1px solid #ead6a0;
+      background: var(--soft-yellow);
+      color: #66531d;
+      font-size: 12px;
+    }
+    .review strong { color: #493b15; }
+    .review ul { margin: 7px 0 0; padding-left: 1.4em; }
+    .references { padding: 22px; border-top: 1px solid var(--line); }
+    .references h3 {
+      margin-bottom: 4px;
+      font-family: "Yu Mincho", serif;
+      font-size: 18px;
+    }
+    .ref-summary { margin: 0 0 14px; color: var(--muted); font-size: 12px; }
+    .ref-card {
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--navy);
+      margin-top: 10px;
+      background: var(--white);
+      scroll-margin-top: 100px;
+    }
+    .ref-card.flash { outline: 3px solid #e9c950; }
+    .badges { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
+    .badge {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      background: #f7f9fb;
+      color: var(--muted);
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .ref-card h4 { margin: 0 0 4px; color: var(--navy); font-family: "Yu Mincho", serif; font-size: 15px; }
+    .meta { color: var(--muted); font-size: 11px; }
+    .phrase {
+      margin: 10px 0;
+      padding: 10px 12px;
+      background: #f6f8fa;
+      color: #334057;
+      font-family: "Yu Mincho", serif;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .ref-card a { font-size: 12px; font-weight: 700; }
+    .view { display: block; }
+    .hidden { display: none !important; }
+    .wide-panel { min-height: 540px; }
+    .search-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+    .search-row button {
+      min-width: 108px;
+      border: 0;
+      background: var(--red);
+      color: var(--white);
+      font-weight: 800;
+      border-radius: 2px;
+    }
+    .status { min-height: 24px; margin: 12px 0; color: var(--muted); font-size: 12px; }
+    .results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .guide-intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, .55fr);
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .principles { margin: 0; padding-left: 1.3em; }
+    .principles li { margin-bottom: 8px; }
+    .guide-callout {
+      padding: 18px;
+      border-left: 3px solid var(--red);
+      background: var(--soft-red);
+      color: #61212a;
+      font-size: 13px;
+    }
+    .usage-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .filter-btn {
+      min-height: 34px;
+      border: 1px solid var(--line-dark);
+      background: var(--white);
+      color: var(--muted);
+      padding: 5px 10px;
+      border-radius: 2px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .filter-btn.on { background: var(--navy); border-color: var(--navy); color: var(--white); }
+    .usage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .usage-card { padding: 16px; border: 1px solid var(--line); background: var(--paper); }
+    .usage-card .category { color: var(--red); font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+    .usage-card h3 { margin: 4px 0 8px; font-family: "Yu Mincho", serif; font-size: 17px; }
+    .usage-card dl { margin: 0; font-size: 12px; }
+    .usage-card dt { margin-top: 7px; color: var(--muted); font-weight: 800; }
+    .usage-card dd { margin: 2px 0 0; }
+    .usage-card .usage-example {
+      margin-top: 10px;
+      padding: 9px 10px;
+      background: var(--soft-blue);
+      font-family: "Yu Mincho", serif;
+      font-size: 12px;
+    }
+    .error {
+      margin: 20px;
+      padding: 14px;
+      border: 1px solid #dcaeb4;
+      background: var(--soft-red);
+      color: #852936;
+      font-size: 13px;
+    }
+    .footer-note { margin: 24px 0 0; color: var(--muted); text-align: center; font-size: 11px; }
+    @media (max-width: 980px) {
+      .top { position: static; align-items: flex-start; flex-direction: column; padding: 14px 18px; }
+      .tabs { width: 100%; }
+      .tabs button { flex: 1; }
+      .shell { padding: 18px 14px 48px; }
+      .hero { grid-template-columns: 1fr; padding: 24px; }
+      .hero-note { max-width: none; }
+      .workspace { grid-template-columns: 1fr; }
+      .output-panel { min-height: 560px; }
+      .results, .usage-grid { grid-template-columns: 1fr; }
+      .guide-intro { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .brand strong { font-size: 16px; }
+      .tabs { overflow-x: auto; }
+      .tabs button { min-width: 92px; padding-inline: 9px; white-space: nowrap; }
+      .hero { padding: 20px; }
+      .hero h1 { font-size: 24px; }
+      .panel-head, .panel-body, .references { padding: 17px; }
+      textarea { min-height: 250px; }
+      .respondent-tabs { grid-template-columns: 1fr; }
+      .analysis { grid-template-columns: 1fr 1fr 1fr; }
+      .metric { padding: 10px; }
+      .metric strong { font-size: 18px; }
+      .document { padding: 24px 18px; font-size: 16px; }
+      .search-row { grid-template-columns: 1fr; }
+      .search-row button { min-height: 44px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">本文へ移動</a>
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">国</span>
+      <div>
+        <strong>国会答弁・質問主意書</strong>
+        <small>DRAFTING WORKBENCH</small>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="機能">
+      <button type="button" class="on" data-view="draftView">原案作成</button>
+      <button type="button" data-view="searchView">資料検索</button>
+      <button type="button" data-view="guideView">用例集</button>
+    </nav>
+  </header>
+
+  <main id="main" class="shell">
+    <section id="draftView" class="view">
+      <div class="hero">
+        <div>
+          <p>DIRECT · TRACEABLE · QUESTION-BOUND</p>
+          <h1>質問に直接答える。<br><span>聞かれていない論点は増やさない。</span></h1>
+        </div>
+        <div class="hero-note">同一論点の答弁が長い場合は「論点一・二」と分けず、実際の提出資料にならった白丸「○」の段落で整理する。</div>
+      </div>
+
+      <div class="workspace">
+        <section class="panel input-panel" aria-labelledby="inputTitle">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">01 / INPUT</span>
+              <h2 id="inputTitle">起案条件</h2>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="field">
+              <label for="mode">作成する文書</label>
+              <select id="mode">
+                <option value="speech">国会答弁案（口頭）</option>
+                <option value="written">質問主意書の答弁書</option>
+                <option value="question">質問主意書</option>
+              </select>
+            </div>
+
+            <div class="field" id="respondentField">
+              <span class="legend">答弁者</span>
+              <div class="respondent-tabs" role="group" aria-label="答弁者">
+                <button type="button" data-value="prime">総理</button>
+                <button type="button" data-value="minister" class="on">大臣</button>
+                <button type="button" data-value="official">政府参考人</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label id="questionLabel" for="question">質問（通告・想定問）</label>
+              <span id="questionHint" class="hint">質問文の要求だけを抽出し、国会公式資料を検索して答弁案を組み立てる。</span>
+              <textarea id="question" rows="15" placeholder="質問を入力してください。"></textarea>
+              <div class="examples" aria-label="入力例">
+                <button type="button" class="example-btn" data-example="crisis">存立危機事態の例</button>
+                <button type="button" class="example-btn" data-example="policy">物価高・中小企業の例</button>
+                <button type="button" class="example-btn" data-example="written">答弁書の例</button>
+              </div>
+            </div>
+
+            <button id="draftBtn" class="primary" type="button">根拠付き答弁案を作成</button>
+            <p class="shortcut">⌘ / Ctrl + Enter でも作成</p>
+          </div>
+        </section>
+
+        <section class="panel output-panel" aria-labelledby="draftTitle">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">02 / DRAFT</span>
+              <h2 id="draftTitle">原案</h2>
+            </div>
+            <div class="output-tools">
+              <button id="copyBtn" class="secondary hidden" type="button">全文をコピー</button>
+            </div>
+          </div>
+          <div id="emptyState" class="empty">
+            <div>
+              <span class="empty-mark" aria-hidden="true">○</span>
+              <strong>質問と作成条件を入力してください</strong>
+              <span>質問要求、独立論点、白丸段落の対応も表示します。</span>
+            </div>
+          </div>
+          <div id="draftResult" class="hidden">
+            <div id="analysis" class="analysis"></div>
+            <div id="groupingNote" class="grouping-note"></div>
+            <pre id="draftOutput" class="document" aria-live="polite"></pre>
+            <div id="review" class="review hidden"></div>
+            <div id="references" class="references hidden"></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="searchView" class="view hidden">
+      <section class="panel wide-panel">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">OFFICIAL SOURCES</span>
+            <h2>国会・政府資料を横断検索</h2>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="search-row">
+            <input id="q" aria-label="検索語" placeholder="例：存立危機事態、物価高、少子化対策">
+            <button id="searchBtn" type="button">検索</button>
+          </div>
+          <div id="searchStatus" class="status" aria-live="polite"></div>
+          <div id="results" class="results"></div>
+        </div>
+      </section>
+    </section>
+
+    <section id="guideView" class="view hidden">
+      <section class="panel wide-panel">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">DRAFTING GUIDE</span>
+            <h2>答弁・答弁書 用例集</h2>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="guide-intro">
+            <div>
+              <h3>起案原則</h3>
+              <ul id="principles" class="principles">
+                <li>読込中…</li>
+              </ul>
+            </div>
+            <div class="guide-callout">
+              <strong>この用例集の使い方</strong><br>
+              定型句を機械的に貼り付けるのではなく、「使う場面」と「避ける場面」を対で確認する。特に「お答えすることは困難」は、答えられない具体的理由がある場合だけ用いる。
+            </div>
+          </div>
+          <div id="usageFilters" class="usage-filters"></div>
+          <div id="usageGrid" class="usage-grid"></div>
+          <div id="guideSources" class="references hidden"></div>
+        </div>
+      </section>
+    </section>
+
+    <p class="footer-note">起案補助用。正式使用前に、主管府省において最新の事実関係、政府方針、法令引用及び答弁前例との整合性を確認してください。</p>
+  </main>
+
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => [...document.querySelectorAll(selector)];
+    const esc = (value) => String(value || '').replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[character]));
+
+    let respondent = 'minister';
+    let lastDraft = '';
+    let guideData = null;
+
+    const examples = {
+      crisis: '麻生副総裁は、昨年1月に中国による台湾侵攻は存立危機事態である可能性が極めて高いと発言しているが、総理はこの発言をどう考えているのか。また、台湾海峡が海上封鎖された場合、存立危機事態になりうるのか、説明されたい。',
+      policy: '物価高への対応を問う。また、中小企業への支援策を示されたい。',
+      written: '政府は、生成AIの開発及び利用の促進と著作権者の権利保護をどのように両立させるのか。政府の認識及び具体的な対応を明らかにされたい。',
+    };
+
+    const categoryLabels = {
+      prime: '総理',
+      minister: '大臣',
+      official: '政府参考人',
+      cabinet: '閣議決定済み答弁書',
+      official_policy: '政府公式資料',
+    };
+    const sourceLabels = {
+      answer: '国会答弁',
+      written: '質問主意書答弁書',
+      press: '会見・演説',
+      interview: 'インタビュー・寄稿',
+      fact: '政府公式資料',
+    };
+
+    function setView(viewId) {
+      $$('.view').forEach((view) => view.classList.toggle('hidden', view.id !== viewId));
+      $$('.tabs button').forEach((button) => button.classList.toggle('on', button.dataset.view === viewId));
+      if (viewId === 'guideView' && !guideData) loadGuide();
+    }
+
+    function syncMode() {
+      const mode = $('#mode').value;
+      const written = mode === 'written';
+      const questionMode = mode === 'question';
+      $('#respondentField').classList.toggle('hidden', mode !== 'speech');
+      $('#questionLabel').textContent = written
+        ? '質問主意書本文'
+        : questionMode
+          ? '問題意識・確認したい事項'
+          : '質問（通告・想定問）';
+      $('#questionHint').textContent = written
+        ? '質問番号との対応を保ち、閣議決定文書の用字・用例で答弁書原案を作成する。'
+        : questionMode
+          ? '一行に一事項を入力すると、背景、番号項目、結語を備えた質問主意書に整える。'
+          : '質問文の要求だけを抽出し、国会公式資料を検索して答弁案を組み立てる。';
+      $('#question').placeholder = questionMode
+        ? '例：生成AIと著作権保護の両立について政府の認識を確認したい。\\n学習段階と生成・利用段階の考え方を明らかにされたい。'
+        : '質問を入力してください。';
+      $('#draftBtn').textContent = written
+        ? '根拠付き答弁書原案を作成'
+        : questionMode
+          ? '質問主意書原案を作成'
+          : '根拠付き答弁案を作成';
+    }
+
+    function referenceCard(item, id = '') {
+      const sourceType = item.sourceTypeLabel || sourceLabels[item.sourceType] || item.sourceType || '資料';
+      const category = item.categoryLabel || categoryLabels[item.category] || item.category || '';
+      return `<article class="ref-card" ${id ? `id="${esc(id)}"` : ''}>
+        <div class="badges">
+          <span class="badge">${esc(sourceType)}</span>
+          ${category ? `<span class="badge">${esc(category)}${item.borrowed ? '（別答弁者）' : ''}</span>` : ''}
+        </div>
+        <h4>${esc(item.title || '参考資料')}</h4>
+        <div class="meta">${esc(item.date || '')} ${esc(item.speaker || '')} ${esc(item.speakerPosition || '')}｜${esc(item.sourceName || '')}</div>
+        ${item.quotedPhrase || item.phrase ? `<div class="phrase">${esc(item.quotedPhrase || item.phrase)}</div>` : ''}
+        <a href="${esc(item.url || '#')}" target="_blank" rel="noopener">公式原文を開く ↗</a>
+      </article>`;
+    }
+
+    function renderDraft(data) {
+      const analysis = data.questionAnalysis || {};
+      const references = data.references || [];
+      const notes = data.reviewNotes || [];
+      lastDraft = data.draft || (data.segments || []).map((segment) => segment.text).join('');
+      $('#draftTitle').textContent = data.title || '原案';
+      $('#emptyState').classList.add('hidden');
+      $('#draftResult').classList.remove('hidden');
+      $('#copyBtn').classList.remove('hidden');
+      $('#analysis').innerHTML = `
+        <div class="metric"><span>質問要求</span><strong>${esc(analysis.askedUnits || 1)}</strong></div>
+        <div class="metric"><span>独立論点</span><strong>${esc(analysis.logicalIssues || data.issueCount || 1)}</strong></div>
+        <div class="metric"><span>${data.mode === 'question' ? '質問項目' : '○ 段落'}</span><strong>${esc(analysis.answerParagraphs || 1)}</strong></div>`;
+      $('#groupingNote').textContent = analysis.groupingNote || '質問との対応関係を確認した。';
+      $('#draftOutput').innerHTML = (data.segments || []).map((segment) => {
+        const text = esc(segment.text);
+        return segment.referenceKey
+          ? `<a class="source-link" href="#ref-${esc(segment.referenceKey)}" data-ref="${esc(segment.referenceKey)}">${text}</a>`
+          : text;
+      }).join('');
+      $('#review').classList.toggle('hidden', !notes.length);
+      $('#review').innerHTML = notes.length
+        ? `<strong>確認事項</strong><ul>${notes.map((note) => `<li>${esc(note)}</li>`).join('')}</ul>`
+        : '';
+      $('#references').classList.toggle('hidden', !references.length);
+      $('#references').innerHTML = references.length
+        ? `<h3>${esc(data.referenceLabel || '根拠・前例')}</h3>
+           <p class="ref-summary">使用した一次資料・用例 ${references.length}件。黄色の下線部分から該当資料へ移動できます。</p>
+           ${references.map((item) => referenceCard(item, `ref-${item.referenceKey}`)).join('')}`
+        : '';
+      $$('.source-link').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          const target = document.getElementById(`ref-${link.dataset.ref}`);
+          if (!target) return;
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.classList.add('flash');
+          setTimeout(() => target.classList.remove('flash'), 1500);
+        });
+      });
+    }
+
+    async function createDraft() {
+      const question = $('#question').value.trim();
+      if (question.length < 8) {
+        $('#question').focus();
+        return;
+      }
+      const button = $('#draftBtn');
+      button.disabled = true;
+      button.textContent = $('#mode').value === 'question'
+        ? '質問項目を整理中…'
+        : '質問分析・一次資料検索・起案中…';
+      $('#emptyState').classList.add('hidden');
+      $('#draftResult').classList.add('hidden');
+      $('#copyBtn').classList.add('hidden');
+      try {
+        const response = await fetch('/api/draft', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ mode: $('#mode').value, respondent, question }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || '原案の作成に失敗しました。');
+        renderDraft(data);
+      } catch (error) {
+        $('#draftResult').classList.remove('hidden');
+        $('#analysis').innerHTML = '';
+        $('#groupingNote').textContent = '';
+        $('#draftOutput').innerHTML = `<div class="error">${esc(error.message)}</div>`;
+        $('#review').classList.add('hidden');
+        $('#references').classList.add('hidden');
+      } finally {
+        button.disabled = false;
+        syncMode();
+      }
+    }
+
+    async function runSearch() {
+      const query = $('#q').value.trim();
+      if (!query) return;
+      $('#searchStatus').textContent = '国会会議録・質問主意書答弁書・政府公式資料を検索中…';
+      $('#results').innerHTML = '';
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&respondent=${encodeURIComponent(respondent)}`, { cache: 'no-store' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || '検索に失敗しました。');
+        $('#searchStatus').textContent = `${data.results.length}件。${data.coverage?.note || ''}`;
+        $('#results').innerHTML = (data.results || []).map((item) => referenceCard({
+          ...item,
+          quotedPhrase: item.excerpt || item.phrase,
+        })).join('');
+      } catch (error) {
+        $('#searchStatus').textContent = error.message;
+      }
+    }
+
+    function renderUsage(category = 'すべて') {
+      if (!guideData) return;
+      const categories = ['すべて', ...new Set(guideData.entries.map((entry) => entry.category))];
+      $('#usageFilters').innerHTML = categories.map((item) =>
+        `<button type="button" class="filter-btn ${item === category ? 'on' : ''}" data-category="${esc(item)}">${esc(item)}</button>`
+      ).join('');
+      const entries = category === 'すべて'
+        ? guideData.entries
+        : guideData.entries.filter((entry) => entry.category === category);
+      $('#usageGrid').innerHTML = entries.map((entry) => `
+        <article class="usage-card">
+          <span class="category">${esc(entry.category)}</span>
+          <h3>${esc(entry.expression)}</h3>
+          <dl>
+            <dt>使う場面</dt><dd>${esc(entry.use)}</dd>
+            <dt>避ける場面</dt><dd>${esc(entry.avoid)}</dd>
+          </dl>
+          <div class="usage-example">${esc(entry.example)}</div>
+        </article>`).join('');
+      $$('.filter-btn').forEach((button) => button.addEventListener('click', () => renderUsage(button.dataset.category)));
+    }
+
+    async function loadGuide() {
+      $('#usageGrid').innerHTML = '<div class="status">用例集を読込中…</div>';
+      try {
+        const response = await fetch('/api/style-guide', { cache: 'no-store' });
+        guideData = await response.json();
+        if (!response.ok) throw new Error(guideData.error || '用例集の読込みに失敗しました。');
+        $('#principles').innerHTML = guideData.principles.map((principle) => `<li>${esc(principle)}</li>`).join('');
+        renderUsage();
+        $('#guideSources').classList.remove('hidden');
+        $('#guideSources').innerHTML = `<h3>参照資料</h3><p class="ref-summary">公用文の考え方、国会公式実例及び答弁作業の調査・実務資料を参照しています。</p>${guideData.sources.map((source) => referenceCard(source)).join('')}`;
+      } catch (error) {
+        $('#usageGrid').innerHTML = `<div class="error">${esc(error.message)}</div>`;
+      }
+    }
+
+    $$('.tabs button').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
+    $$('.respondent-tabs button').forEach((button) => button.addEventListener('click', () => {
+      respondent = button.dataset.value;
+      $$('.respondent-tabs button').forEach((item) => item.classList.toggle('on', item === button));
+    }));
+    $$('.example-btn').forEach((button) => button.addEventListener('click', () => {
+      $('#question').value = examples[button.dataset.example] || '';
+      if (button.dataset.example === 'written') $('#mode').value = 'written';
+      if (button.dataset.example === 'crisis') {
+        $('#mode').value = 'speech';
+        respondent = 'prime';
+        $$('.respondent-tabs button').forEach((item) => item.classList.toggle('on', item.dataset.value === 'prime'));
+      }
+      syncMode();
+      $('#question').focus();
+    }));
+    $('#mode').addEventListener('change', syncMode);
+    $('#draftBtn').addEventListener('click', createDraft);
+    $('#searchBtn').addEventListener('click', runSearch);
+    $('#q').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') runSearch();
+    });
+    $('#question').addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') createDraft();
+    });
+    $('#copyBtn').addEventListener('click', async () => {
+      if (!lastDraft) return;
+      try {
+        await navigator.clipboard.writeText(lastDraft);
+        const button = $('#copyBtn');
+        const original = button.textContent;
+        button.textContent = 'コピーしました';
+        setTimeout(() => { button.textContent = original; }, 1400);
+      } catch {
+        $('#draftOutput').focus();
+      }
+    });
+
+    syncMode();
+  </script>
+</body>
+</html>

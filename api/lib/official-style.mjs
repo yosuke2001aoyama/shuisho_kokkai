@@ -1,6 +1,6 @@
 import { finalizeStyle, hasPoliteEnding } from './style.mjs';
 
-export const OFFICIAL_STYLE_VERSION = '2026-07-29';
+export const OFFICIAL_STYLE_VERSION = '2026-07-30';
 
 export const OFFICIAL_STYLE_SOURCES = [
   {
@@ -23,9 +23,32 @@ export const OFFICIAL_STYLE_SOURCES = [
     sourceName: '参議院',
     url: 'https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/213/touh/t213103.htm',
   },
+  {
+    title: '質問主意書（制度・作成・答弁までの流れ）',
+    sourceName: '参議院',
+    url: 'https://www.sangiin.go.jp/japanese/aramashi/keyword/situmon.html',
+  },
+  {
+    title: '存立危機事態に関する質問に対する答弁書',
+    sourceName: '衆議院',
+    url: 'https://www.shugiin.go.jp/internet/itdb_shitsumon.nsf/html/shitsumon/b219071.htm',
+  },
+  {
+    title: '国会答弁が完成するまで',
+    sourceName: '日本経済研究センター',
+    url: 'https://www.jcer.or.jp/j-column/column-komine/20191016-4.html',
+  },
+  {
+    title: '国会答弁対応業務の高度化と効率化に向けた中央省庁とのプロトタイピングプログラム',
+    sourceName: 'Amazon Web Services',
+    url: 'https://aws.amazon.com/jp/blogs/news/prototyping-program-with-central-government-agencies-for-diet-response-operations/',
+  },
 ];
 
 export const OFFICIAL_USAGE = [
+  { category: '口頭答弁', expression: '○（白丸）段落', use: '同一論点の答弁を、結論、判断基準、政府の立場等の読みやすい段落に分ける。', avoid: '答弁が長いだけで「論点一」「論点二」等の新たな論点を作ること。', example: '○　台湾海峡の平和と安定は、我が国の安全保障はもとより、国際社会全体の安定にとっても重要である。' },
+  { category: '口頭答弁', expression: '質問への直接応答', use: '質問者が求めた認識、理由、具体策、見通し等だけを、質問順に答える。', avoid: '聞かれていない評価、理由、施策又は将来方針を追加すること。', example: '認識を問われた場合は認識を先に述べ、具体策は求められたときだけ加える。' },
+  { category: '口頭答弁', expression: '一般論として申し上げれば', use: '個別事案への断定を避けつつ、政府の確立した判断基準を示す。', avoid: '客観的事実を確認できる質問への答弁を一般論だけにすり替えること。', example: '一般論として申し上げれば、事態の個別具体的な状況に即して判断する。' },
   { category: '照応', expression: 'お尋ねの「…」', use: '質問者が定義又は回答を求めている語句・事項を受ける。', avoid: '質問者の主張や評価を受ける場合に用いない。', example: 'お尋ねの「対象事業」の具体的に意味するところが必ずしも明らかではない。' },
   { category: '照応', expression: '御指摘の「…」', use: '質問文に記載された主張、評価、引用又は前提を受ける。', avoid: '純粋な疑問文そのものを受ける場合は「お尋ね」を用いる。', example: '御指摘の「著しい遅延」の意味するところが必ずしも明らかではない。' },
   { category: '照応', expression: '前段／後段のお尋ね', use: '一つの項目に複数の問いがある場合に対応関係を明示する。', avoid: '対応する問いが一つしかない場合。', example: '前段のお尋ねについては、政府として把握していない。' },
@@ -179,7 +202,9 @@ export function getOfficialStyleGuide() {
     version: OFFICIAL_STYLE_VERSION,
     title: '質問主意書答弁書・公用文用例集',
     principles: [
-      '質問項目との対応関係を見出しで明示し、各論点に必ず応答する。',
+      '質問項目との対応関係を明示し、各問いに直接応答する。',
+      '同一の法的・政策的主題は一つの論点として扱い、答弁が長い場合は白丸の段落を追加する。',
+      '独立した主題が複数ある場合だけ項目を分け、質問にない論点又は答弁要素を追加しない。',
       '意味又は趣旨が不明確な場合は、曖昧な語句を特定した上で回答範囲を限定する。',
       '留保又は答弁困難の理由を明示し、可能な場合は「いずれにせよ」に続けて政府の一般的立場を示す。',
       '常体、用字、括弧、接続語及び法令引用を統一し、議場口語を残さない。',
