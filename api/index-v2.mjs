@@ -1,7 +1,8 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v28.mjs';
-import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest-v28.mjs';
-import { QUALITY_BACKTEST_CASES, runQualityBacktests } from '../lib/quality-backtest-v28.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v29.mjs';
+import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest-v29.mjs';
+import { QUALITY_BACKTEST_CASES, runQualityBacktests } from '../lib/quality-backtest-v29.mjs';
+import { listBreadthBacktests, runBreadthBacktests } from '../lib/breadth-backtest-v29.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
@@ -201,7 +202,7 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ok: true,
         version: PROFILE_VERSION,
-        draftingProfile: 'temporally-gated-demand-calibrated-role-aware-oral/written-cabinet-document',
+        draftingProfile: 'predicate-verified-cross-domain-temporally-gated-role-aware-oral/written-cabinet-document',
       });
     }
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
@@ -240,6 +241,21 @@ export default async function handler(req, res) {
         return json(res, 400, {
           error: 'Unknown quality-test case',
           cases: QUALITY_BACKTEST_CASES.map((testCase) => testCase.id),
+        });
+      }
+      return json(res, 200, report);
+    }
+
+    if (u.pathname.endsWith('/breadth-test')) {
+      const caseId = clean(u.searchParams.get('case') || '');
+      if (caseId === 'list') {
+        return json(res, 200, { version: PROFILE_VERSION, cases: listBreadthBacktests() });
+      }
+      const report = await runBreadthBacktests(caseId);
+      if (!report) {
+        return json(res, 400, {
+          error: 'Unknown breadth-test case',
+          cases: listBreadthBacktests().map((testCase) => testCase.id),
         });
       }
       return json(res, 200, report);
