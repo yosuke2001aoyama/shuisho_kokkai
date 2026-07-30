@@ -1,5 +1,5 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v18.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v19.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
