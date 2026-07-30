@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { build } from '../lib/profile-v25.mjs';
-import { buildQuestionDraft } from '../api/lib/question.mjs';
+import { buildQuestionDraft } from '../lib/question.mjs';
 import { getOfficialStyleGuide } from '../api/lib/official-style.mjs';
 
 const crisisQuestion = '麻生副総裁は、中国による台湾侵攻は存立危機事態である可能性が高いと発言しているが、総理はどう考えるのか。また、台湾海峡が海上封鎖された場合、存立危機事態になり得るのか。';

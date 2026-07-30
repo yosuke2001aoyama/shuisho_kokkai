@@ -1,7 +1,7 @@
 import { clean } from './lib/core.mjs';
 import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v25.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
-import { buildQuestionDraft } from './lib/question.mjs';
+import { buildQuestionDraft } from '../lib/question.mjs';
 
 const json = (res, status, body) => {
   res.statusCode = status;
