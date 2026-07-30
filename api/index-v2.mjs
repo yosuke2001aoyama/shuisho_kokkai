@@ -1,5 +1,6 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v26.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v27.mjs';
+import { listTemporalBacktests, runTemporalBacktests } from '../lib/temporal-backtest.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
@@ -199,11 +200,26 @@ export default async function handler(req, res) {
       return json(res, 200, {
         ok: true,
         version: PROFILE_VERSION,
-        draftingProfile: 'role-aware-substantive-oral/written-cabinet-document',
+        draftingProfile: 'temporal-precedent-gated-role-aware-oral/written-cabinet-document',
       });
     }
     if (u.pathname.endsWith('/self-test')) return json(res, 200, selfTest());
     if (u.pathname.endsWith('/style-guide')) return json(res, 200, getOfficialStyleGuide());
+
+    if (u.pathname.endsWith('/temporal-test')) {
+      const caseId = clean(u.searchParams.get('case') || '');
+      if (caseId === 'list') {
+        return json(res, 200, { version: PROFILE_VERSION, cases: listTemporalBacktests() });
+      }
+      const report = await runTemporalBacktests(caseId);
+      if (!report) {
+        return json(res, 400, {
+          error: 'Unknown temporal-test case',
+          cases: listTemporalBacktests().map((testCase) => testCase.id),
+        });
+      }
+      return json(res, 200, report);
+    }
 
     if (u.pathname.endsWith('/smoke-test')) {
       const name = clean(u.searchParams.get('case'));
