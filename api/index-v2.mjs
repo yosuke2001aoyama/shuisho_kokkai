@@ -1,5 +1,5 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v20.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v21.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
@@ -56,9 +56,10 @@ async function runSmokeCase(name) {
       noUnaskedReason: !/【理由・根拠】/.test(draft.draft),
       noDebateFragments: !/お尋ねの|御指摘|委員|議員|昨日は|私も|連合さん|まあ|おっしゃ|通告|時間の関係/.test(draft.draft),
       broadQuestionNotSectorOnly: !/医療機関|医療・介護|診療報酬|歯科|B型事業所|障害福祉/.test(draft.draft),
-      noStandaloneDiscourseFragments: !/(?:^|\n　)(?:ですから|また|その上で|こうした中)[、，]/mu.test(draft.draft),
+      noStandaloneDiscourseFragments: !/(?:^|\n　)(?:ですから|また|その上で|こうした中|ということを考えて)[、，]/mu.test(draft.draft),
       futureIsForwardLooking: /今後|引き続き|進めていく|取り組んでいく|講じていく|実施していく|目指|努め|方針|予定|見通し/.test(futureText),
       distinctSections: new Set(bodyTexts).size === bodyTexts.length,
+      noContextDependentFuture: !/世論調査を拝見|御安心|総理が何度も|強い思いを持って|その辺は/.test(futureText),
     };
     return { name, passed: Object.values(checks).every(Boolean), checks, sample: draft };
   }
