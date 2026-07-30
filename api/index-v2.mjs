@@ -1,5 +1,5 @@
 import { clean } from './lib/core.mjs';
-import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v19.mjs';
+import { build, searchAll, selfTest, PROFILE_VERSION } from '../lib/profile-v20.mjs';
 import { getOfficialStyleGuide } from './lib/official-style.mjs';
 
 const json = (res, status, body) => {
@@ -45,6 +45,8 @@ async function runSmokeCase(name) {
   }
   if (name === 'policy') {
     const draft = await build('speech', '物価高への認識と具体的な対応、今後の方針を問う。', 'minister');
+    const futureText = draft.segments.find((segment) => segment.responseType === 'future')?.text || '';
+    const bodyTexts = draft.segments.filter((segment) => segment.responseType).map((segment) => segment.text.replace(/^.*?\n　/us, '').trim());
     const checks = {
       onlyRequestedKinds: sameKinds(draft, ['conclusion', 'recognition', 'measures', 'future']),
       requestedSectionsPresent:
@@ -53,6 +55,10 @@ async function runSmokeCase(name) {
         /【今後の方針】/.test(draft.draft),
       noUnaskedReason: !/【理由・根拠】/.test(draft.draft),
       noDebateFragments: !/お尋ねの|御指摘|委員|議員|昨日は|私も|連合さん|まあ|おっしゃ|通告|時間の関係/.test(draft.draft),
+      broadQuestionNotSectorOnly: !/医療機関|医療・介護|診療報酬|歯科|B型事業所|障害福祉/.test(draft.draft),
+      noStandaloneDiscourseFragments: !/(?:^|\n　)(?:ですから|また|その上で|こうした中)[、，]/mu.test(draft.draft),
+      futureIsForwardLooking: /今後|引き続き|進めていく|取り組んでいく|講じていく|実施していく|目指|努め|方針|予定|見通し/.test(futureText),
+      distinctSections: new Set(bodyTexts).size === bodyTexts.length,
     };
     return { name, passed: Object.values(checks).every(Boolean), checks, sample: draft };
   }
