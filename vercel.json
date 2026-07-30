@@ -20,6 +20,6 @@
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index-v2.mjs" },
-    { "source": "/", "destination": "/public/index-v2.html" }
+    { "source": "/", "destination": "/index-v2.html" }
   ]
 }
